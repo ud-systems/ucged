@@ -67,9 +67,9 @@ export function CustomerFollowUpPanel({
 
   return (
     <div>
-      <div className="space-y-3 text-left">
+      <div className="flex flex-col gap-3 text-left">
         <div className="flex items-start gap-3">
-          <div className="h-12 w-12 rounded-full bg-primary/15 text-primary grid place-items-center font-heading font-semibold shrink-0">
+          <div className="size-12 rounded-full bg-primary/15 text-primary grid place-items-center font-heading font-semibold shrink-0">
             {(row.customer_name || "?").slice(0, 1).toUpperCase()}
           </div>
           <div className="min-w-0 flex-1">
@@ -143,7 +143,7 @@ export function CustomerFollowUpPanel({
       <p className="mt-1 text-[11px] text-muted-foreground">WhatsApp / SMS open on your device — log the outcome below.</p>
 
       <Tabs defaultValue="log" className="mt-6">
-        <TabsList className="w-full bg-muted/80">
+        <TabsList className="w-full bg-muted/80 overflow-x-auto flex-nowrap justify-start">
           <TabsTrigger
             value="log"
             className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
@@ -305,7 +305,7 @@ export function CustomerDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto max-h-dvh">
         <SheetHeader className="sr-only">
           <SheetTitle>{row.customer_name}</SheetTitle>
         </SheetHeader>

@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Search, RefreshCw, Phone, ExternalLink } from "lucide-react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCgeDashboardKpis, useCgeQueue, useRefreshCgeTasks, type QueueRow } from "@/hooks/use-cge-data";
 import { Input } from "@/components/ui/input";
@@ -19,7 +21,26 @@ import {
 } from "@/lib/segments";
 import { formatDaysQuiet } from "@/lib/days-quiet";
 import { cn } from "@/lib/utils";
+import { prefersReducedMotion } from "@/lib/motion";
 import { toast } from "sonner";
+import {
+  CountUpValue,
+  DataTableShell,
+  FilterBar,
+  PageFrame,
+  PageHeader,
+  PagePagination,
+  RecordCard,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/layout";
+import { useStaggerIn } from "@/hooks/use-stagger-in";
+
+gsap.registerPlugin(useGSAP);
 
 function ownerLabel(row: QueueRow) {
   return row.ownership_label || row.sp_assigned || row.referred_by || "—";
@@ -27,9 +48,33 @@ function ownerLabel(row: QueueRow) {
 
 function Kpi({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-2xl border bg-card px-4 py-3 shadow-[var(--shadow-card)] min-w-[140px]">
-      <p className="text-xs text-muted-foreground font-body">{label}</p>
-      <p className="font-heading text-2xl font-semibold mt-1">{value}</p>
+    <div className="rounded-2xl border bg-card px-4 py-3 shadow-[var(--shadow-card)] min-w-0 lg:flex-1">
+      <p className="text-xs text-muted-foreground font-body truncate">{label}</p>
+      <p className="font-heading text-2xl font-semibold mt-1">
+        {typeof value === "number" ? <CountUpValue value={value} /> : value}
+      </p>
+    </div>
+  );
+}
+
+function QueueActions({ tel, wa, customerId }: { tel: string; wa: string; customerId: string }) {
+  return (
+    <div className="flex justify-end gap-1">
+      <Button size="icon" variant="ghost" className="size-11 md:size-8" asChild disabled={!tel} title="Call">
+        <a href={tel ? `tel:${tel}` : undefined}>
+          <Phone />
+        </a>
+      </Button>
+      <Button size="icon" variant="ghost" className="size-11 md:size-8" asChild disabled={!wa} title="WhatsApp">
+        <a href={wa ? `https://wa.me/${wa}` : undefined} target="_blank" rel="noreferrer">
+          <WhatsAppIcon />
+        </a>
+      </Button>
+      <Button size="icon" variant="ghost" className="size-11 md:size-8" asChild title="Open customer">
+        <Link to={`/customers/${customerId}`}>
+          <ExternalLink />
+        </Link>
+      </Button>
     </div>
   );
 }
@@ -43,6 +88,8 @@ export default function QueuePage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const listRef = useRef<HTMLDivElement>(null);
+  const bulkRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setPage(1);
@@ -66,34 +113,48 @@ export default function QueuePage() {
 
   const allChecked = useMemo(() => rows.length > 0 && rows.every((r) => selected.has(r.id)), [rows, selected]);
 
-  return (
-    <div className="p-6 lg:p-8 space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            Queue <span className="text-muted-foreground font-normal text-xl ml-1">{total}</span>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Human follow-ups for customers quiet 90+ days (plus assigned never-purchased).</p>
-        </div>
-        <Button
-          variant="outline"
-          className="rounded-xl"
-          disabled={refresh.isPending}
-          onClick={async () => {
-            try {
-              await refresh.mutateAsync();
-              toast.success("Queue refreshed from Shopify customers");
-            } catch (e: any) {
-              toast.error(e.message || "Refresh failed");
-            }
-          }}
-        >
-          <RefreshCw className={cn("h-4 w-4 mr-2", refresh.isPending && "animate-spin")} />
-          Refresh tasks
-        </Button>
-      </div>
+  useStaggerIn(listRef, "[data-stagger-item]", [rows, page, tab, segment]);
 
-      <div className="flex gap-3 overflow-x-auto pb-1">
+  useGSAP(
+    () => {
+      const el = bulkRef.current;
+      if (!el) return;
+      if (prefersReducedMotion()) {
+        gsap.set(el, { autoAlpha: 1, y: 0 });
+        return;
+      }
+      gsap.from(el, { autoAlpha: 0, y: 24, duration: 0.35, ease: "power3.out", clearProps: "transform" });
+    },
+    { dependencies: [selected.size > 0] },
+  );
+
+  return (
+    <PageFrame>
+      <PageHeader
+        title="Queue"
+        count={total}
+        description="Human follow-ups for customers quiet 90+ days (plus assigned never-purchased)."
+        actions={
+          <Button
+            variant="outline"
+            className="rounded-xl w-full sm:w-auto"
+            disabled={refresh.isPending}
+            onClick={async () => {
+              try {
+                await refresh.mutateAsync();
+                toast.success("Queue refreshed from Shopify customers");
+              } catch (e: unknown) {
+                toast.error(e instanceof Error ? e.message : "Refresh failed");
+              }
+            }}
+          >
+            <RefreshCw className={cn(refresh.isPending && "animate-spin")} data-icon="inline-start" />
+            Refresh tasks
+          </Button>
+        }
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:flex gap-3">
         <Kpi label="Open tasks" value={kpis?.open_tasks ?? "—"} />
         <Kpi label="VIP inactive" value={kpis?.vip_inactive ?? "—"} />
         <Kpi label="One-time lapsed" value={kpis?.one_time_lapsed ?? "—"} />
@@ -109,7 +170,7 @@ export default function QueuePage() {
           setPage(1);
         }}
       >
-        <TabsList className="bg-transparent gap-1 h-auto p-0 flex flex-wrap justify-start">
+        <TabsList className="bg-transparent gap-1 h-auto p-0 flex w-full overflow-x-auto justify-start">
           {[
             ["all", "All"],
             ["assigned_to_me", "Assigned to me"],
@@ -119,7 +180,7 @@ export default function QueuePage() {
             <TabsTrigger
               key={value}
               value={value}
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 py-2"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 py-2 shrink-0"
             >
               {label}
             </TabsTrigger>
@@ -127,9 +188,9 @@ export default function QueuePage() {
         </TabsList>
       </Tabs>
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <FilterBar>
+        <div className="relative w-full sm:max-w-sm sm:flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             className="pl-9 rounded-xl bg-card"
             placeholder="Search customer, email, phone…"
@@ -151,7 +212,7 @@ export default function QueuePage() {
                 navigate(queuePathForSegment(item.segment));
               }}
               className={cn(
-                "px-3 py-1.5 rounded-full text-xs border transition-colors",
+                "px-3 py-1.5 rounded-full text-xs border motion-safe:transition-colors",
                 segment === item.segment
                   ? "bg-primary text-primary-foreground border-primary"
                   : "bg-card text-muted-foreground hover:bg-muted",
@@ -161,17 +222,65 @@ export default function QueuePage() {
             </button>
           ))}
         </div>
-      </div>
+      </FilterBar>
 
-      <div className="rounded-2xl border bg-card overflow-hidden shadow-[var(--shadow-card)] relative">
-        {(isLoading || isFetching) && (
-          <div className="absolute inset-0 bg-background/40 z-10 grid place-items-center text-sm text-muted-foreground">Loading…</div>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground text-xs uppercase tracking-wide">
-              <tr>
-                <th className="w-10 p-3">
+      <div ref={listRef} className="flex flex-col gap-3 md:gap-0">
+        <div className="flex flex-col gap-3 md:hidden">
+          {rows.map((row) => {
+            const isSelected = selected.has(row.id);
+            const tel = row.customer_phone?.replace(/\s+/g, "") || "";
+            const wa = tel.replace(/^\+/, "");
+            return (
+              <RecordCard
+                key={row.id}
+                className={cn(isSelected && "ring-1 ring-primary/40 bg-primary/5")}
+                onClick={() => navigate(`/customers/${row.customer_id}`)}
+              >
+                <div className="flex items-start gap-3">
+                  <div onClick={(e) => e.stopPropagation()} className="pt-1">
+                    <Checkbox
+                      checked={isSelected}
+                      onCheckedChange={(checked) => {
+                        setSelected((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(row.id);
+                          else next.delete(row.id);
+                          return next;
+                        });
+                      }}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium truncate">{row.customer_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{row.customer_email || "—"}</p>
+                    <div className="flex flex-wrap gap-1.5 mt-2">
+                      <Badge variant="outline" className={segmentBadgeClass(row.segment)}>
+                        {SEGMENT_LABELS[row.segment as CgeSegment] || row.segment}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDaysQuiet(row.customer_recency_days, row.recency_days)} quiet
+                      </span>
+                    </div>
+                  </div>
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <QueueActions tel={tel} wa={wa} customerId={row.customer_id} />
+                  </div>
+                </div>
+              </RecordCard>
+            );
+          })}
+          {!isLoading && rows.length === 0 && (
+            <p className="p-10 text-center text-sm text-muted-foreground">
+              No customers in this queue yet. Sync Shopify data, link CGEs to salespersons, then refresh tasks.
+            </p>
+          )}
+        </div>
+
+        <DataTableShell loading={isLoading || isFetching} className="hidden md:block">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead className="w-10">
                   <Checkbox
                     checked={allChecked}
                     onCheckedChange={(checked) => {
@@ -179,29 +288,30 @@ export default function QueuePage() {
                       else setSelected(new Set());
                     }}
                   />
-                </th>
-                <th className="text-left p-3 font-medium">Customer</th>
-                <th className="text-left p-3 font-medium">Email</th>
-                <th className="text-left p-3 font-medium">Status</th>
-                <th className="text-left p-3 font-medium">Salesperson</th>
-                <th className="text-left p-3 font-medium">RFM</th>
-                <th className="text-right p-3 font-medium">Days quiet</th>
-                <th className="text-right p-3 font-medium">Priority</th>
-                <th className="text-right p-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+                </TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead className="hidden lg:table-cell">Email</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Salesperson</TableHead>
+                <TableHead className="hidden lg:table-cell">RFM</TableHead>
+                <TableHead className="text-right">Days quiet</TableHead>
+                <TableHead className="hidden lg:table-cell text-right">Priority</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row) => {
                 const isSelected = selected.has(row.id);
                 const tel = row.customer_phone?.replace(/\s+/g, "") || "";
                 const wa = tel.replace(/^\+/, "");
                 return (
-                  <tr
+                  <TableRow
                     key={row.id}
-                    className={cn("border-t cursor-pointer hover:bg-accent/40", isSelected && "bg-primary/10")}
+                    data-stagger-item
+                    className={cn("cursor-pointer", isSelected && "bg-primary/10")}
                     onClick={() => navigate(`/customers/${row.customer_id}`)}
                   >
-                    <td className="p-3" onClick={(e) => e.stopPropagation()}>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
                         onCheckedChange={(checked) => {
@@ -213,20 +323,24 @@ export default function QueuePage() {
                           });
                         }}
                       />
-                    </td>
-                    <td className="p-3 font-medium">{row.customer_name}</td>
-                    <td className="p-3 text-muted-foreground">{row.customer_email || "—"}</td>
-                    <td className="p-3">
+                    </TableCell>
+                    <TableCell className="font-medium max-w-[12rem] truncate">{row.customer_name}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground max-w-[14rem] truncate">
+                      {row.customer_email || "—"}
+                    </TableCell>
+                    <TableCell>
                       <Badge variant="outline" className={segmentBadgeClass(row.segment)}>
                         {SEGMENT_LABELS[row.segment as CgeSegment] || row.segment}
                       </Badge>
-                    </td>
-                    <td className="p-3">{ownerLabel(row)}</td>
-                    <td className="p-3 text-muted-foreground">{row.rfm_group || row.customer_rfm_group || "—"}</td>
-                    <td className="p-3 text-right tabular-nums">
+                    </TableCell>
+                    <TableCell className="max-w-[10rem] truncate">{ownerLabel(row)}</TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground">
+                      {row.rfm_group || row.customer_rfm_group || "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
                       {formatDaysQuiet(row.customer_recency_days, row.recency_days)}
-                    </td>
-                    <td className="p-3 text-right">
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-right">
                       <span className="inline-flex gap-0.5" title={`Priority ${row.priority}`}>
                         {Array.from({ length: 10 }).map((_, i) => (
                           <span
@@ -238,57 +352,32 @@ export default function QueuePage() {
                           />
                         ))}
                       </span>
-                    </td>
-                    <td className="p-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex justify-end gap-1">
-                        <Button size="icon" variant="ghost" className="h-8 w-8" asChild disabled={!tel} title="Call">
-                          <a href={tel ? `tel:${tel}` : undefined}>
-                            <Phone className="h-4 w-4" />
-                          </a>
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" asChild disabled={!wa} title="WhatsApp">
-                          <a href={wa ? `https://wa.me/${wa}` : undefined} target="_blank" rel="noreferrer">
-                            <WhatsAppIcon className="h-4 w-4" />
-                          </a>
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" asChild title="Open customer">
-                          <Link to={`/customers/${row.customer_id}`}>
-                            <ExternalLink className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <QueueActions tel={tel} wa={wa} customerId={row.customer_id} />
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {!isLoading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={9} className="p-10 text-center text-muted-foreground">
+                <TableRow>
+                  <TableCell colSpan={9} className="p-10 text-center text-muted-foreground">
                     No customers in this queue yet. Sync Shopify data, link CGEs to salespersons, then refresh tasks.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </DataTableShell>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          Page {page} of {pageCount}
-        </p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </Button>
-          <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </Button>
-        </div>
-      </div>
+      <PagePagination page={page} pageCount={pageCount} onPageChange={setPage} />
 
       {selected.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 rounded-full bg-foreground text-background px-5 py-3 shadow-[var(--shadow-float)] flex items-center gap-4 text-sm">
+        <div
+          ref={bulkRef}
+          className="fixed z-20 inset-x-4 bottom-[max(1rem,env(safe-area-inset-bottom))] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:bottom-6 rounded-2xl md:rounded-full bg-foreground text-background px-5 py-3 shadow-[var(--shadow-float)] flex flex-wrap items-center justify-center gap-3 text-sm max-w-full"
+        >
           <span>Selected: {selected.size}</span>
           <Button
             size="sm"
@@ -301,11 +390,16 @@ export default function QueuePage() {
           >
             Open customer
           </Button>
-          <Button size="sm" variant="ghost" className="rounded-full text-background hover:text-background" onClick={() => setSelected(new Set())}>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="rounded-full text-background hover:text-background"
+            onClick={() => setSelected(new Set())}
+          >
             Discard
           </Button>
         </div>
       )}
-    </div>
+    </PageFrame>
   );
 }

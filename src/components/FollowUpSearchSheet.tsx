@@ -45,8 +45,8 @@ export function FollowUpSearchSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg h-full flex flex-col overflow-hidden gap-0">
-        <SheetHeader className="text-left space-y-1 shrink-0 pr-8">
+      <SheetContent className="w-full sm:max-w-lg h-dvh max-h-dvh flex flex-col overflow-hidden gap-0">
+        <SheetHeader className="text-left flex flex-col gap-1 shrink-0 pr-8">
           {selected ? (
             <div className="flex items-center gap-1 -ml-2">
               <Button
@@ -97,7 +97,7 @@ export function FollowUpSearchSheet({
                   Loading…
                 </div>
               )}
-              <ul className="space-y-1 pb-1">
+              <ul className="flex flex-col gap-1 pb-1">
                 {rows.map((row) => (
                   <li key={row.id}>
                     <button

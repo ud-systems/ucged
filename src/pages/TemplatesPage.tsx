@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Eye, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -24,6 +24,8 @@ import {
 import { defaultMarketingHtml, mergeTemplateVars, TEMPLATE_SAMPLE } from "@/lib/email-template-html";
 import { MARKETING_CAMPAIGN_TEMPLATES } from "@/lib/marketing-campaign-templates";
 import { cn } from "@/lib/utils";
+import { PageFrame, PageHeader, PagePagination } from "@/components/layout";
+import { useStaggerIn } from "@/hooks/use-stagger-in";
 
 const PAGE_SIZE = 12;
 
@@ -115,51 +117,57 @@ export default function TemplatesPage() {
     setShowTextBody(false);
   };
 
+  const listRef = useRef<HTMLDivElement>(null);
+  useStaggerIn(listRef, "[data-stagger-item]", [paged, kindFilter, page]);
+
   return (
-    <div className="p-6 lg:p-8 space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">Templates</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Soft automation (day 60/75) and marketing HTML in one studio.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button
-            variant="outline"
-            className="rounded-xl"
-            disabled={importPack.isPending}
-            onClick={() => {
-              if (
-                !window.confirm(
-                  `Import / refresh ${MARKETING_CAMPAIGN_TEMPLATES.length} Unique Distribution wholesale campaign templates? Existing keys will be updated.`,
-                )
-              ) {
-                return;
-              }
-              importPack.mutate();
-            }}
-          >
-            {importPack.isPending
-              ? "Importing…"
-              : `Import wholesale pack (${MARKETING_CAMPAIGN_TEMPLATES.length})`}
-          </Button>
-          <Button
-            className="rounded-xl"
-            onClick={() => {
-              setSelectedId("new");
-              setDraft(emptyDraft());
-              setShowHtmlBody(false);
-              setShowTextBody(false);
-            }}
-          >
-            New marketing template
-          </Button>
-        </div>
-      </div>
+    <PageFrame>
+      <PageHeader
+        title="Templates"
+        description="Soft automation (day 60/75) and marketing HTML in one studio."
+        actions={
+          <>
+            <Button
+              variant="outline"
+              className="rounded-xl w-full sm:w-auto"
+              disabled={importPack.isPending}
+              onClick={() => {
+                if (
+                  !window.confirm(
+                    `Import / refresh ${MARKETING_CAMPAIGN_TEMPLATES.length} Unique Distribution wholesale campaign templates? Existing keys will be updated.`,
+                  )
+                ) {
+                  return;
+                }
+                importPack.mutate();
+              }}
+            >
+              {importPack.isPending
+                ? "Importing…"
+                : (
+                  <>
+                    <span className="sm:hidden">Import pack ({MARKETING_CAMPAIGN_TEMPLATES.length})</span>
+                    <span className="hidden sm:inline">Import wholesale pack ({MARKETING_CAMPAIGN_TEMPLATES.length})</span>
+                  </>
+                )}
+            </Button>
+            <Button
+              className="rounded-xl w-full sm:w-auto"
+              onClick={() => {
+                setSelectedId("new");
+                setDraft(emptyDraft());
+                setShowHtmlBody(false);
+                setShowTextBody(false);
+              }}
+            >
+              New marketing template
+            </Button>
+          </>
+        }
+      />
 
       <Tabs value={kindFilter} onValueChange={setKindFilter}>
-        <TabsList className="bg-transparent gap-1 h-auto p-0">
+        <TabsList className="bg-transparent gap-1 h-auto p-0 flex w-full overflow-x-auto justify-start">
           {[
             ["all", "All"],
             ["soft", "Soft automation"],
@@ -169,7 +177,7 @@ export default function TemplatesPage() {
             <TabsTrigger
               key={v}
               value={v}
-              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 py-2"
+              className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none px-3 py-2 shrink-0"
             >
               {l}
             </TabsTrigger>
@@ -177,16 +185,16 @@ export default function TemplatesPage() {
         </TabsList>
       </Tabs>
 
-      <div className="space-y-3">
+      <div ref={listRef} className="flex flex-col gap-3">
         <div className="rounded-2xl border bg-card overflow-hidden w-full">
           {isLoading && <p className="p-4 text-sm text-muted-foreground">Loading…</p>}
           <ul className="divide-y">
             {paged.map((t) => (
-              <li key={t.id}>
+              <li key={t.id} data-stagger-item>
                 <button
                   type="button"
                   onClick={() => open(t)}
-                  className={`w-full text-left px-4 py-3.5 hover:bg-accent/40 ${
+                  className={`w-full text-left px-4 py-3.5 hover:bg-accent/40 motion-safe:transition-colors ${
                     selectedId === t.id ? "bg-primary/10" : ""
                   }`}
                 >
@@ -212,29 +220,7 @@ export default function TemplatesPage() {
         </div>
 
         {filtered.length > PAGE_SIZE && (
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs text-muted-foreground">
-              Page {page} of {pageCount} · {filtered.length} templates
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={page >= pageCount}
-                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
+          <PagePagination page={page} pageCount={pageCount} onPageChange={setPage} />
         )}
       </div>
 
@@ -244,7 +230,7 @@ export default function TemplatesPage() {
           if (!openSheet) closeEditor();
         }}
       >
-        <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col gap-0 overflow-hidden">
+        <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col gap-0 overflow-hidden max-h-dvh">
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0 text-left">
             <SheetTitle className="font-heading">
               {selectedId === "new" ? "New marketing template" : draft.name || draft.template_key || "Edit template"}
@@ -254,13 +240,13 @@ export default function TemplatesPage() {
             </SheetDescription>
           </SheetHeader>
 
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5 flex flex-col gap-4">
             <div className="grid sm:grid-cols-2 gap-3">
-              <div className="space-y-1.5">
+              <div className="flex flex-col gap-1.5">
                 <p className="text-xs text-muted-foreground">Name</p>
                 <Input value={draft.name || ""} onChange={(e) => setDraft((d) => ({ ...d, name: e.target.value }))} />
               </div>
-              <div className="space-y-1.5">
+              <div className="flex flex-col gap-1.5">
                 <p className="text-xs text-muted-foreground">Key</p>
                 <Input
                   value={draft.template_key}
@@ -268,7 +254,7 @@ export default function TemplatesPage() {
                   onChange={(e) => setDraft((d) => ({ ...d, template_key: e.target.value }))}
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="flex flex-col gap-1.5">
                 <p className="text-xs text-muted-foreground">Kind</p>
                 <Select
                   value={draft.template_kind || "marketing"}
@@ -285,13 +271,13 @@ export default function TemplatesPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5 sm:col-span-2">
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
                 <p className="text-xs text-muted-foreground">Subject</p>
                 <Input value={draft.subject} onChange={(e) => setDraft((d) => ({ ...d, subject: e.target.value }))} />
               </div>
             </div>
 
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <button
                   type="button"
@@ -360,7 +346,7 @@ export default function TemplatesPage() {
               )}
             </div>
 
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <button
                 type="button"
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -403,7 +389,7 @@ export default function TemplatesPage() {
       </Sheet>
 
       <Sheet open={previewOpen} onOpenChange={setPreviewOpen}>
-        <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col gap-0 overflow-hidden">
+        <SheetContent className="w-full sm:max-w-xl p-0 flex flex-col gap-0 overflow-hidden max-h-dvh">
           <SheetHeader className="px-6 pt-6 pb-4 border-b shrink-0 text-left">
             <SheetTitle className="font-heading">Template preview</SheetTitle>
             <SheetDescription>
@@ -417,13 +403,13 @@ export default function TemplatesPage() {
           <div className="flex-1 min-h-0 overflow-hidden bg-[#F3F7F0]">
             <iframe
               title="Email template preview"
-              className="w-full h-full min-h-[70vh] border-0 bg-[#F3F7F0]"
+              className="w-full h-full min-h-[50vh] sm:min-h-[70vh] border-0 bg-[#F3F7F0]"
               sandbox=""
               srcDoc={previewBody}
             />
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+    </PageFrame>
   );
 }

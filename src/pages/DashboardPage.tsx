@@ -14,6 +14,8 @@ import { TrendChart } from "@/components/dashboard/TrendChart";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { DrilldownSheet } from "@/components/dashboard/DrilldownSheet";
 import { resolvePeriod, toIso, type PeriodKey } from "@/lib/performance-period";
+import { PageFrame, PageHeader } from "@/components/layout";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 
 function defaultCustomFrom() {
@@ -27,7 +29,8 @@ function defaultCustomTo() {
 }
 
 export default function DashboardPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isSupervisor } = useAuth();
+  const isTeamViewer = isAdmin || isSupervisor;
   const [periodKey, setPeriodKey] = useState<PeriodKey>("week");
   const [customFrom, setCustomFrom] = useState(defaultCustomFrom);
   const [customTo, setCustomTo] = useState(defaultCustomTo);
@@ -45,14 +48,14 @@ export default function DashboardPage() {
     viewerUserId: user?.id,
     from: fromIso,
     to: toIsoEnd,
-    isAdmin,
+    isAdmin: isTeamViewer,
   });
 
   const { data: leaderboard = [], isLoading: boardLoading } = useCgePerformanceLeaderboard({
     viewerUserId: user?.id,
     from: fromIso,
     to: toIsoEnd,
-    enabled: isAdmin,
+    enabled: isTeamViewer,
   });
 
   const { data: timeseries = [] } = useCgePerformanceTimeseries({
@@ -73,7 +76,7 @@ export default function DashboardPage() {
     viewerUserId: user?.id,
     from: fromIso,
     to: toIsoEnd,
-    enabled: !isAdmin,
+    enabled: !isTeamViewer,
   });
 
   const selfStats = selfBoard[0];
@@ -84,38 +87,42 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">
-            {isAdmin ? "Team performance" : "My performance"}
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            {isAdmin
+    <PageFrame>
+      <PageHeader
+        title={isTeamViewer ? "Team performance" : "My performance"}
+        description={
+          <>
+            {isTeamViewer
               ? "Gamified CGE scoreboard — follow-ups, recoveries, and streaks by period."
               : "Your outreach XP, streak, and period targets."}{" "}
             <span className="text-foreground/80">{period.label}</span>
-          </p>
-        </div>
-        <PeriodPicker
-          periodKey={periodKey}
-          onPeriodKeyChange={setPeriodKey}
-          customFrom={customFrom}
-          customTo={customTo}
-          onCustomFromChange={setCustomFrom}
-          onCustomToChange={setCustomTo}
-        />
-      </div>
+          </>
+        }
+        actions={
+          <PeriodPicker
+            periodKey={periodKey}
+            onPeriodKeyChange={setPeriodKey}
+            customFrom={customFrom}
+            customTo={customTo}
+            onCustomFromChange={setCustomFrom}
+            onCustomToChange={setCustomTo}
+          />
+        }
+      />
 
       {summaryLoading || !summary ? (
-        <p className="text-muted-foreground">Loading performance…</p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-2xl" />
+          ))}
+        </div>
       ) : (
-        <KpiStrip summary={summary} from={period.from} to={period.to} isAdmin={isAdmin} />
+        <KpiStrip summary={summary} from={period.from} to={period.to} isAdmin={isTeamViewer} />
       )}
 
-      {!isAdmin && selfStats && (
-        <div className="rounded-2xl border bg-card p-5 shadow-[var(--shadow-card)] flex flex-wrap items-center justify-between gap-3">
-          <div>
+      {!isTeamViewer && selfStats && (
+        <div className="rounded-2xl border bg-card p-4 sm:p-5 shadow-[var(--shadow-card)] flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-3">
+          <div className="min-w-0">
             <p className="text-xs text-muted-foreground uppercase tracking-wide">Your rank this period</p>
             <p className="font-heading text-2xl font-semibold mt-1">
               {selfStats.points} XP · {selfStats.streak}d streak
@@ -125,31 +132,27 @@ export default function DashboardPage() {
               {selfStats.recoveries} recoveries
             </p>
           </div>
-          <Button
-            className="rounded-xl"
-            variant="outline"
-            onClick={() => openDrill(selfStats)}
-          >
+          <Button className="rounded-xl w-full sm:w-auto" variant="outline" onClick={() => openDrill(selfStats)}>
             View my drilldown
           </Button>
         </div>
       )}
 
       <div className="grid xl:grid-cols-[1fr_320px] gap-4 items-start">
-        <div className="space-y-4">
+        <div className="flex flex-col gap-4 min-w-0">
           <TrendChart points={timeseries} />
-          {isAdmin && (
+          {isTeamViewer && (
             <Leaderboard
               rows={leaderboard}
               onSelect={openDrill}
               selectedId={drillId}
             />
           )}
-          {boardLoading && isAdmin && (
-            <p className="text-sm text-muted-foreground">Loading leaderboard…</p>
+          {boardLoading && isTeamViewer && (
+            <Skeleton className="h-40 rounded-2xl" />
           )}
         </div>
-        <ActivityFeed items={activity} showCge={isAdmin} />
+        <ActivityFeed items={activity} showCge={isTeamViewer} />
       </div>
 
       <DrilldownSheet
@@ -166,6 +169,6 @@ export default function DashboardPage() {
         from={fromIso}
         to={toIsoEnd}
       />
-    </div>
+    </PageFrame>
   );
 }

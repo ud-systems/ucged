@@ -3,8 +3,9 @@ import { isPreview, supabase } from "@/integrations/supabase/client";
 import type { User } from "@supabase/supabase-js";
 import { resolveCapabilities, type AppCapability } from "@/lib/auth-capabilities";
 import { PREVIEW_USER } from "@/lib/ui-preview";
+import { clearMissedMailDismissed } from "@/lib/mail-unread";
 
-export type UserRole = "admin" | "cge" | "salesperson";
+export type UserRole = "admin" | "supervisor" | "cge" | "salesperson";
 
 export interface AppUser {
   id: string;
@@ -25,6 +26,7 @@ interface AuthContextType {
   capabilities: AppCapability[];
   hasCapability: (capability: AppCapability) => boolean;
   isAdmin: boolean;
+  isSupervisor: boolean;
   isCge: boolean;
   refreshSessionUser: () => Promise<void>;
   isPreview: boolean;
@@ -37,7 +39,7 @@ function getInitials(email: string, name?: string): string {
   return email.slice(0, 2).toUpperCase();
 }
 
-const rolePriority: UserRole[] = ["admin", "cge", "salesperson"];
+const rolePriority: UserRole[] = ["admin", "supervisor", "cge", "salesperson"];
 
 function pickPrimaryRole(roles: UserRole[]): UserRole {
   for (const role of rolePriority) {
@@ -144,6 +146,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(PREVIEW_USER);
       return;
     }
+    clearMissedMailDismissed(user?.id);
     await supabase.auth.signOut();
     setUser(null);
   };
@@ -160,6 +163,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         capabilities,
         hasCapability: (c) => capabilities.includes(c),
         isAdmin: !!user?.roles.includes("admin"),
+        isSupervisor: !!user?.roles.includes("supervisor"),
         isCge: !!user?.roles.includes("cge"),
         refreshSessionUser,
         isPreview,

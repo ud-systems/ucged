@@ -1,14 +1,28 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useCgeFollowups } from "@/hooks/use-cge-data";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QUEUE_SEGMENT_ROUTES, SEGMENT_LABELS, segmentBadgeClass, type CgeSegment } from "@/lib/segments";
+import {
+  DataTableShell,
+  FilterBar,
+  PageFrame,
+  PageHeader,
+  PagePagination,
+  RecordCard,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/layout";
+import { useStaggerIn } from "@/hooks/use-stagger-in";
 
 export default function FollowUpsPage() {
   const { user } = useAuth();
@@ -19,6 +33,7 @@ export default function FollowUpsPage() {
   const [hasOutreach, setHasOutreach] = useState("all");
   const [assignedToMe, setAssignedToMe] = useState(false);
   const [page, setPage] = useState(1);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const { data, isLoading, isFetching } = useCgeFollowups({
     viewerUserId: user?.id,
@@ -35,18 +50,19 @@ export default function FollowUpsPage() {
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / 25));
 
-  return (
-    <div className="p-6 lg:p-8 space-y-5">
-      <div>
-        <h1 className="font-heading text-3xl font-semibold tracking-tight">
-          Follow-ups <span className="text-muted-foreground font-normal text-xl ml-1">{total}</span>
-        </h1>
-        <p className="text-sm text-muted-foreground mt-1">Search anyone in your scope and review full follow-up history.</p>
-      </div>
+  useStaggerIn(listRef, "[data-stagger-item]", [rows, page, segment, status, hasOutreach, assignedToMe]);
 
-      <div className="flex flex-wrap gap-2 items-center">
-        <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+  return (
+    <PageFrame>
+      <PageHeader
+        title="Follow-ups"
+        count={total}
+        description="Search anyone in your scope and review full follow-up history."
+      />
+
+      <FilterBar>
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             className="pl-9 rounded-xl bg-card"
             placeholder="Search name, email, phone, SP…"
@@ -64,7 +80,7 @@ export default function FollowUpsPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[180px] rounded-xl">
+          <SelectTrigger className="w-full sm:w-[160px] rounded-xl">
             <SelectValue placeholder="Segment" />
           </SelectTrigger>
           <SelectContent>
@@ -82,7 +98,7 @@ export default function FollowUpsPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[160px] rounded-xl">
+          <SelectTrigger className="w-full sm:w-[160px] rounded-xl">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -101,7 +117,7 @@ export default function FollowUpsPage() {
             setPage(1);
           }}
         >
-          <SelectTrigger className="w-[160px] rounded-xl">
+          <SelectTrigger className="w-full sm:w-[160px] rounded-xl">
             <SelectValue placeholder="Outreach" />
           </SelectTrigger>
           <SelectContent>
@@ -110,7 +126,7 @@ export default function FollowUpsPage() {
             <SelectItem value="no">No outreach</SelectItem>
           </SelectContent>
         </Select>
-        <label className="flex items-center gap-2 text-sm px-2">
+        <label className="flex items-center gap-2 text-sm px-1 min-h-10">
           <Checkbox
             checked={assignedToMe}
             onCheckedChange={(c) => {
@@ -120,43 +136,62 @@ export default function FollowUpsPage() {
           />
           Assigned to me
         </label>
-      </div>
+      </FilterBar>
 
-      <div className="rounded-2xl border bg-card overflow-hidden relative">
-        {(isLoading || isFetching) && (
-          <div className="absolute inset-0 bg-background/40 z-10 grid place-items-center text-sm text-muted-foreground">Loading…</div>
-        )}
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/40 text-muted-foreground text-xs uppercase tracking-wide">
-              <tr>
-                <th className="text-left p-3 font-medium">Customer</th>
-                <th className="text-left p-3 font-medium">Segment</th>
-                <th className="text-left p-3 font-medium">Status</th>
-                <th className="text-left p-3 font-medium">Owner</th>
-                <th className="text-left p-3 font-medium">Last outreach</th>
-                <th className="text-right p-3 font-medium">Events</th>
-              </tr>
-            </thead>
-            <tbody>
+      <div ref={listRef} className="flex flex-col gap-3 md:gap-0">
+        <div className="flex flex-col gap-3 md:hidden">
+          {rows.map((row) => (
+            <RecordCard key={row.id} onClick={() => navigate(`/customers/${row.customer_id}`)}>
+              <p className="font-medium truncate">{row.customer_name}</p>
+              <p className="text-xs text-muted-foreground truncate">{row.customer_email || row.customer_phone || "—"}</p>
+              <div className="flex flex-wrap items-center gap-2 mt-2">
+                <Badge variant="outline" className={segmentBadgeClass(row.segment)}>
+                  {SEGMENT_LABELS[row.segment as CgeSegment] || row.segment}
+                </Badge>
+                <span className="text-xs capitalize text-muted-foreground">{row.status.replace("_", " ")}</span>
+                <span className="text-xs text-muted-foreground ml-auto tabular-nums">{row.outreach_count ?? 0} events</span>
+              </div>
+            </RecordCard>
+          ))}
+          {!isLoading && rows.length === 0 && (
+            <p className="p-10 text-center text-sm text-muted-foreground">No follow-ups match these filters.</p>
+          )}
+        </div>
+
+        <DataTableShell loading={isLoading || isFetching} className="hidden md:block">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Segment</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="hidden lg:table-cell">Owner</TableHead>
+                <TableHead className="hidden lg:table-cell">Last outreach</TableHead>
+                <TableHead className="text-right">Events</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((row) => (
-                <tr
+                <TableRow
                   key={row.id}
-                  className="border-t cursor-pointer hover:bg-accent/40"
+                  data-stagger-item
+                  className="cursor-pointer"
                   onClick={() => navigate(`/customers/${row.customer_id}`)}
                 >
-                  <td className="p-3">
-                    <p className="font-medium">{row.customer_name}</p>
-                    <p className="text-xs text-muted-foreground">{row.customer_email || row.customer_phone || "—"}</p>
-                  </td>
-                  <td className="p-3">
+                  <TableCell>
+                    <p className="font-medium truncate max-w-[14rem]">{row.customer_name}</p>
+                    <p className="text-xs text-muted-foreground truncate max-w-[14rem]">
+                      {row.customer_email || row.customer_phone || "—"}
+                    </p>
+                  </TableCell>
+                  <TableCell>
                     <Badge variant="outline" className={segmentBadgeClass(row.segment)}>
                       {SEGMENT_LABELS[row.segment as CgeSegment] || row.segment}
                     </Badge>
-                  </td>
-                  <td className="p-3 capitalize">{row.status.replace("_", " ")}</td>
-                  <td className="p-3">{row.ownership_label || "—"}</td>
-                  <td className="p-3 text-muted-foreground">
+                  </TableCell>
+                  <TableCell className="capitalize">{row.status.replace("_", " ")}</TableCell>
+                  <TableCell className="hidden lg:table-cell truncate max-w-[10rem]">{row.ownership_label || "—"}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-muted-foreground">
                     {row.last_outreach_at ? (
                       <>
                         {new Date(row.last_outreach_at).toLocaleDateString()}
@@ -165,35 +200,23 @@ export default function FollowUpsPage() {
                     ) : (
                       "—"
                     )}
-                  </td>
-                  <td className="p-3 text-right tabular-nums">{row.outreach_count ?? 0}</td>
-                </tr>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{row.outreach_count ?? 0}</TableCell>
+                </TableRow>
               ))}
               {!isLoading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="p-10 text-center text-muted-foreground">
+                <TableRow>
+                  <TableCell colSpan={6} className="p-10 text-center text-muted-foreground">
                     No follow-ups match these filters.
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
+            </TableBody>
+          </Table>
+        </DataTableShell>
       </div>
 
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-muted-foreground">
-          Page {page} of {pageCount}
-        </p>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-            Previous
-          </Button>
-          <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>
-            Next
-          </Button>
-        </div>
-      </div>
-    </div>
+      <PagePagination page={page} pageCount={pageCount} onPageChange={setPage} />
+    </PageFrame>
   );
 }

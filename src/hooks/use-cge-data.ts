@@ -4,6 +4,7 @@ import { PREVIEW_KPIS, PREVIEW_QUEUE_ROWS } from "@/lib/ui-preview";
 import { UDDASH_APP_SETTINGS } from "@/lib/seed-credentials";
 import { daysQuietFromOrders, emailLocalPart, normalizeDaysQuiet } from "@/lib/days-quiet";
 import { MARKETING_CAMPAIGN_TEMPLATES } from "@/lib/marketing-campaign-templates";
+import { previewMailBody, type UnreadMailPreview } from "@/lib/mail-unread";
 import { toast } from "sonner";
 
 /** Live days quiet from related-order emails for the current queue page.
@@ -1819,6 +1820,8 @@ export function useSendCgeMail() {
       void qc.invalidateQueries({ queryKey: ["cge-email-messages"] });
       void qc.invalidateQueries({ queryKey: ["outreach", vars.customer_id] });
       void qc.invalidateQueries({ queryKey: ["cge-mail-inbox"] });
+      void qc.invalidateQueries({ queryKey: ["cge-mail-unread-summary"] });
+      void qc.invalidateQueries({ queryKey: ["cge-mail-inbound-previews"] });
       void qc.invalidateQueries({ queryKey: ["cge-queue"] });
       void qc.invalidateQueries({ queryKey: ["cge-followups"] });
     },
@@ -1865,6 +1868,104 @@ export function useMailInbox(params: {
   });
 }
 
+const PREVIEW_UNREAD_THREADS: UnreadMailPreview[] = [
+  {
+    id: "th-1",
+    customer_id: "preview-customer",
+    customer_name: "Emma Johansson",
+    customer_email: "emma@nordicsoft.example",
+    subject: "Checking in",
+    last_message_at: new Date(Date.now() - 1000 * 60 * 42).toISOString(),
+    preview: "Thanks for reaching out — we are reviewing the last order and will come back shortly.",
+    unread_count: 1,
+  },
+  {
+    id: "th-2",
+    customer_id: "preview-customer-2",
+    customer_name: "Ethan Wilson",
+    customer_email: "ethan@travelventures.example",
+    subject: "Following up",
+    last_message_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    preview: "Can you send the latest price list? Happy to reorder if stock is still available.",
+    unread_count: 1,
+  },
+];
+
+async function fetchInboundPreviews(threadIds: string[]): Promise<Record<string, string>> {
+  if (!threadIds.length) return {};
+  const { data, error } = await supabase
+    .from("cge_email_messages")
+    .select("thread_id, body_text, body_html, created_at")
+    .in("thread_id", threadIds)
+    .eq("direction", "inbound")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  const previews: Record<string, string> = {};
+  for (const row of data ?? []) {
+    const id = (row as { thread_id?: string }).thread_id;
+    if (!id || previews[id]) continue;
+    previews[id] = previewMailBody(
+      (row as { body_text?: string | null }).body_text,
+      (row as { body_html?: string | null }).body_html,
+    );
+  }
+  return previews;
+}
+
+export function useInboundMessagePreviews(threadIds: string[]) {
+  const key = [...threadIds].sort().join(",");
+  return useQuery({
+    queryKey: ["cge-mail-inbound-previews", key, isPreview],
+    enabled: threadIds.length > 0,
+    queryFn: async () => {
+      if (isPreview) {
+        const map: Record<string, string> = {};
+        for (const t of PREVIEW_UNREAD_THREADS) {
+          if (threadIds.includes(t.id)) map[t.id] = t.preview;
+        }
+        return map;
+      }
+      return fetchInboundPreviews(threadIds);
+    },
+  });
+}
+
+export function useUnreadMailSummary(viewerUserId?: string) {
+  return useQuery({
+    queryKey: ["cge-mail-unread-summary", viewerUserId, isPreview],
+    enabled: Boolean(viewerUserId),
+    refetchInterval: 30_000,
+    queryFn: async (): Promise<{ total: number; threads: UnreadMailPreview[] }> => {
+      if (isPreview) {
+        return { total: PREVIEW_UNREAD_THREADS.length, threads: PREVIEW_UNREAD_THREADS };
+      }
+      const { data, error } = await supabase.rpc("get_cge_mail_inbox_page", {
+        _viewer_user_id: viewerUserId!,
+        _unread_only: true,
+        _page: 1,
+        _page_size: 20,
+      });
+      if (error) throw error;
+      const rows = (data ?? []) as { row_data: Record<string, unknown>; total_count: number }[];
+      const total = Number(rows[0]?.total_count ?? 0);
+      const mapped = rows.map((r) => r.row_data);
+      const ids = mapped.map((r) => String(r.id || "")).filter(Boolean);
+      const previews = await fetchInboundPreviews(ids);
+      const threads: UnreadMailPreview[] = mapped.map((r) => ({
+        id: String(r.id || ""),
+        customer_id: String(r.customer_id || ""),
+        customer_name: String(r.customer_name || "—"),
+        customer_email: String(r.customer_email || ""),
+        subject: String(r.subject || "(no subject)"),
+        last_message_at: (r.last_message_at as string | null) ?? null,
+        preview: previews[String(r.id || "")] || "",
+        unread_count: 1,
+      }));
+      return { total, threads };
+    },
+  });
+}
+
 export function useMarkThreadRead() {
   const qc = useQueryClient();
   return useMutation({
@@ -1879,6 +1980,8 @@ export function useMarkThreadRead() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["cge-mail-inbox"] });
       void qc.invalidateQueries({ queryKey: ["cge-email-threads"] });
+      void qc.invalidateQueries({ queryKey: ["cge-mail-unread-summary"] });
+      void qc.invalidateQueries({ queryKey: ["cge-mail-inbound-previews"] });
     },
   });
 }

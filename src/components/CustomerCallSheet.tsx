@@ -60,8 +60,8 @@ export function CustomerCallSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md z-[60] flex flex-col gap-0 overflow-hidden">
-        <SheetHeader className="text-left space-y-1 shrink-0 pr-8">
+      <SheetContent className="w-full sm:max-w-md z-[60] flex flex-col gap-0 overflow-hidden max-h-dvh">
+        <SheetHeader className="text-left flex flex-col gap-1 shrink-0 pr-8">
           <SheetTitle className="font-heading text-xl">Call</SheetTitle>
           <SheetDescription>
             {customerName ? `Reach ${customerName}` : "Call or schedule a callback"}
@@ -69,8 +69,8 @@ export function CustomerCallSheet({
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-5 flex-1 min-h-0 overflow-y-auto space-y-5 pb-2">
-          <div className="space-y-2">
+        <div className="mt-5 flex-1 min-h-0 overflow-y-auto flex flex-col gap-5 pb-2">
+          <div className="flex flex-col gap-2">
             <Button
               type="button"
               className="w-full justify-between rounded-xl border-0 bg-neutral-800 text-white hover:bg-neutral-900"
@@ -101,7 +101,7 @@ export function CustomerCallSheet({
             {!tel && <p className="text-xs text-muted-foreground">No phone number on file.</p>}
           </div>
 
-          <div className="border-t pt-5 space-y-3">
+          <div className="border-t pt-5 flex flex-col gap-3">
             <div>
               <h3 className="font-heading text-base font-semibold">Schedule call</h3>
               <p className="text-xs text-muted-foreground mt-0.5">
@@ -143,7 +143,7 @@ export function CustomerCallSheet({
               </div>
             )}
 
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <p className="text-xs text-muted-foreground">Date & time</p>
               <Input
                 type="datetime-local"
@@ -153,7 +153,7 @@ export function CustomerCallSheet({
                 disabled={!canSchedule}
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <p className="text-xs text-muted-foreground">Notes (optional)</p>
               <Textarea
                 value={notes}

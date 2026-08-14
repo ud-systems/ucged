@@ -11,7 +11,7 @@ export const PREVIEW_USER = {
   name: "Aiden Hudson",
   email: "aiden@cge.preview",
   role: "admin" as const,
-  roles: ["admin", "cge"] as ("admin" | "cge" | "salesperson")[],
+  roles: ["admin", "cge"] as ("admin" | "supervisor" | "cge" | "salesperson")[],
   initials: "AH",
   salesperson_name: "Aiden Hudson",
   hasDbRole: true,

@@ -15,7 +15,7 @@ export function RecordsLoadingOverlay({ rows = 5, className }: RecordsLoadingOve
       )}
       aria-hidden="true"
     >
-      <div className="space-y-2">
+      <div className="flex flex-col gap-2">
         {Array.from({ length: rows }).map((_, idx) => (
           <Skeleton key={idx} className="h-10 w-full rounded-lg" />
         ))}

@@ -4,7 +4,7 @@ import { requireAdmin } from "../_shared/require-admin.ts";
 
 const MIN_PASSWORD_LEN = 8;
 
-type AppRole = "admin" | "salesperson" | "cge";
+type AppRole = "admin" | "salesperson" | "cge" | "supervisor";
 
 function jsonErr(msg: string, status: number) {
   return new Response(JSON.stringify({ error: msg }), {
@@ -24,6 +24,8 @@ function pickRoleRow(rows: { role: AppRole; salesperson_name: string | null }[])
   if (!rows.length) return null;
   const admin = rows.find((r) => r.role === "admin");
   if (admin) return admin;
+  const supervisor = rows.find((r) => r.role === "supervisor");
+  if (supervisor) return supervisor;
   const cge = rows.find((r) => r.role === "cge");
   if (cge) return cge;
   return rows[0];
@@ -87,7 +89,7 @@ async function handleCreate(
   if (password.length < MIN_PASSWORD_LEN) {
     return jsonErr(`Password must be at least ${MIN_PASSWORD_LEN} characters`, 400);
   }
-  if (role !== "admin" && role !== "salesperson" && role !== "cge") return jsonErr("Invalid role", 400);
+  if (role !== "admin" && role !== "salesperson" && role !== "cge" && role !== "supervisor") return jsonErr("Invalid role", 400);
   if (role === "salesperson" && !salesperson_name) {
     salesperson_name = full_name || email.split("@")[0] || "Salesperson";
   }
@@ -107,7 +109,7 @@ async function handleCreate(
   const { error: roleErr } = await supabase.from("user_roles").insert({
     user_id: user.id,
     role,
-    salesperson_name: role === "salesperson" ? salesperson_name : (role === "cge" ? (salesperson_name || full_name || null) : null),
+    salesperson_name: role === "salesperson" ? salesperson_name : (role === "cge" || role === "supervisor" ? (salesperson_name || full_name || null) : null),
   });
   if (roleErr) {
     await supabase.auth.admin.deleteUser(user.id);
@@ -167,7 +169,7 @@ async function handleUpdate(
   }
 
   if (role !== undefined) {
-    if (role !== "admin" && role !== "salesperson" && role !== "cge") return jsonErr("Invalid role", 400);
+    if (role !== "admin" && role !== "salesperson" && role !== "cge" && role !== "supervisor") return jsonErr("Invalid role", 400);
 
     const { data: currentRows } = await supabase.from("user_roles").select("role").eq("user_id", user_id);
     const wasAdmin = currentRows?.some((r) => r.role === "admin");
@@ -181,21 +183,21 @@ async function handleUpdate(
     }
 
     let spName: string | null = role === "admin" ? null : (salesperson_name_in ?? "");
-    if ((role === "salesperson" || role === "cge") && !spName) {
+    if ((role === "salesperson" || role === "cge" || role === "supervisor") && !spName) {
       const meta = existingUser.user_metadata as Record<string, string | undefined>;
       spName =
         meta?.full_name ||
         meta?.name ||
         existingUser.email?.split("@")[0] ||
-        (role === "cge" ? "CGE" : "Salesperson");
+        (role === "cge" ? "CGE" : role === "supervisor" ? "Supervisor" : "Salesperson");
     }
-    if (role === "cge" && !spName) spName = null;
+    if ((role === "cge" || role === "supervisor") && !spName) spName = null;
 
     await supabase.from("user_roles").delete().eq("user_id", user_id);
     const { error: insErr } = await supabase.from("user_roles").insert({
       user_id,
       role,
-      salesperson_name: role === "salesperson" ? spName : role === "cge" ? spName : null,
+      salesperson_name: role === "salesperson" ? spName : role === "cge" || role === "supervisor" ? spName : null,
     });
     if (insErr) return jsonErr(insErr.message, 500);
   } else if (spProvided && salesperson_name_in !== undefined) {

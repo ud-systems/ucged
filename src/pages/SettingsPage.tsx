@@ -12,6 +12,7 @@ import { SettingsAssignments } from "@/components/settings/SettingsAssignments";
 import { SettingsSyncHealth } from "@/components/settings/SettingsSyncHealth";
 import { SettingsMailIdentities } from "@/components/settings/SettingsMailIdentities";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
+import { PageFrame, PageHeader } from "@/components/layout";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -61,13 +62,11 @@ export default function SettingsPage() {
   if (!isAdmin) return <Navigate to="/queue" replace />;
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 w-full max-w-none">
-      <div>
-        <h1 className="font-heading text-3xl font-semibold">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Shopify credentials, users, assignments, sync health, and soft-email templates.
-        </p>
-      </div>
+    <PageFrame className="w-full max-w-none">
+      <PageHeader
+        title="Settings"
+        description="Shopify credentials, users, assignments, sync health, and soft-email templates."
+      />
 
       <Tabs
         value={tab}
@@ -75,17 +74,17 @@ export default function SettingsPage() {
           setParams(v === "shopify" ? {} : { tab: v });
         }}
       >
-        <TabsList className="inline-flex w-fit h-auto flex-wrap justify-start gap-1">
-          <TabsTrigger value="shopify">Shopify & DataPulse</TabsTrigger>
-          <TabsTrigger value="users">Users</TabsTrigger>
-          <TabsTrigger value="mail">Mail identities</TabsTrigger>
-          <TabsTrigger value="assignments">Assignments</TabsTrigger>
-          <TabsTrigger value="sync">Sync health</TabsTrigger>
-          <TabsTrigger value="email">Soft email</TabsTrigger>
+        <TabsList className="inline-flex w-full md:w-fit h-auto flex-nowrap overflow-x-auto justify-start gap-1">
+          <TabsTrigger value="shopify" className="shrink-0">Shopify & DataPulse</TabsTrigger>
+          <TabsTrigger value="users" className="shrink-0">Users</TabsTrigger>
+          <TabsTrigger value="mail" className="shrink-0">Mail identities</TabsTrigger>
+          <TabsTrigger value="assignments" className="shrink-0">Assignments</TabsTrigger>
+          <TabsTrigger value="sync" className="shrink-0">Sync health</TabsTrigger>
+          <TabsTrigger value="email" className="shrink-0">Soft email</TabsTrigger>
         </TabsList>
 
         <TabsContent value="shopify" className="mt-4">
-          <section className="space-y-4 rounded-2xl border bg-card p-5">
+          <section className="flex flex-col gap-4 rounded-2xl border bg-card p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <SettingsSectionTitle
                 title="Shopify & DataPulseFlow"
@@ -113,7 +112,7 @@ export default function SettingsPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-4 gap-y-4">
               {KEYS.map((key) => (
-                <div key={key} className="space-y-1.5 min-w-0">
+                <div key={key} className="flex flex-col gap-1.5 min-w-0">
                   <Label htmlFor={key}>{key}</Label>
                   <Input
                     id={key}
@@ -176,31 +175,31 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="users" className="mt-4">
-          <section className="rounded-2xl border bg-card p-5">
+          <section className="rounded-2xl border bg-card p-4 sm:p-5">
             <SettingsUserManagement />
           </section>
         </TabsContent>
 
         <TabsContent value="mail" className="mt-4">
-          <section className="rounded-2xl border bg-card p-5">
+          <section className="rounded-2xl border bg-card p-4 sm:p-5">
             <SettingsMailIdentities />
           </section>
         </TabsContent>
 
         <TabsContent value="assignments" className="mt-4">
-          <section className="rounded-2xl border bg-card p-5">
+          <section className="rounded-2xl border bg-card p-4 sm:p-5">
             <SettingsAssignments />
           </section>
         </TabsContent>
 
         <TabsContent value="sync" className="mt-4">
-          <section className="rounded-2xl border bg-card p-5">
+          <section className="rounded-2xl border bg-card p-4 sm:p-5">
             <SettingsSyncHealth />
           </section>
         </TabsContent>
 
         <TabsContent value="email" className="mt-4">
-          <section className="space-y-3 rounded-2xl border bg-card p-5">
+          <section className="flex flex-col gap-3 rounded-2xl border bg-card p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <SettingsSectionTitle
                 title="Soft email templates (day 60 / 75)"
@@ -215,16 +214,16 @@ export default function SettingsPage() {
                 Run soft emails now
               </Button>
             </div>
-            <div className="space-y-3">
+            <div className="flex flex-col gap-3">
               {templates.map((t: { id: string; template_key: string; day_offset: number; segment: string; subject: string }) => (
-                <div key={t.id} className="rounded-xl border p-3 text-sm">
+                <div key={t.id} className="rounded-xl border p-3 text-sm min-w-0">
                   <div className="flex justify-between gap-2">
-                    <p className="font-medium">{t.template_key}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="font-medium truncate">{t.template_key}</p>
+                    <p className="text-xs text-muted-foreground shrink-0">
                       day {t.day_offset} · {t.segment}
                     </p>
                   </div>
-                  <p className="mt-1">{t.subject}</p>
+                  <p className="mt-1 truncate">{t.subject}</p>
                 </div>
               ))}
               {templates.length === 0 && (
@@ -266,6 +265,6 @@ export default function SettingsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageFrame>
   );
 }

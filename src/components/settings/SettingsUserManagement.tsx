@@ -27,13 +27,24 @@ import { toast } from "sonner";
 import { Loader2, Pencil, Plus, Trash2, UserMinus } from "lucide-react";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
 import { useOffboardCge } from "@/hooks/use-cge-data";
+import {
+  DataTableShell,
+  PagePagination,
+  RecordCard,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/layout";
 
 export type ListedAppUser = {
   id: string;
   email: string | null;
   full_name: string;
   created_at: string;
-  role: "admin" | "salesperson" | "cge" | null;
+  role: "admin" | "salesperson" | "cge" | "supervisor" | null;
   salesperson_name: string | null;
   has_role_row: boolean;
 };
@@ -57,7 +68,7 @@ type FormState = {
   email: string;
   password: string;
   full_name: string;
-  role: "admin" | "salesperson" | "cge";
+  role: "admin" | "salesperson" | "cge" | "supervisor";
   salesperson_name: string;
 };
 
@@ -209,101 +220,123 @@ export function SettingsUserManagement() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-2">
         <SettingsSectionTitle
           title="Users"
-          tip="Create admins, CGEs, and salespersons. Salesperson display names must match Shopify ownership labels (SP_Assigned / referred_by)."
+          tip="Create admins, supervisors, CGEs, and salespersons. Salesperson display names must match Shopify ownership labels (SP_Assigned / referred_by)."
         />
-        <Button className="rounded-xl" onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" /> Add user
+        <Button className="rounded-xl w-full sm:w-auto" onClick={openCreate}>
+          <Plus data-icon="inline-start" /> Add user
         </Button>
       </div>
 
-      <div className="rounded-2xl border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="text-left p-3">Name</th>
-              <th className="text-left p-3">Email</th>
-              <th className="text-left p-3">Role</th>
-              <th className="text-left p-3">Shopify label</th>
-              <th className="text-right p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={5} className="p-6 text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {!loading &&
-              pageUsers.map((u) => (
-                <tr key={u.id} className="border-t">
-                  <td className="p-3 font-medium">{u.full_name || "—"}</td>
-                  <td className="p-3 text-muted-foreground">{u.email || "—"}</td>
-                  <td className="p-3 capitalize">{u.role || "—"}</td>
-                  <td className="p-3">{u.salesperson_name || "—"}</td>
-                  <td className="p-3 text-right space-x-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Edit">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    {u.role === "cge" && u.id !== currentUser?.id && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Offboard CGE"
-                        onClick={() => {
-                          setOffboardTarget(u);
-                          setSuccessorId("");
-                        }}
-                      >
-                        <UserMinus className="h-4 w-4" />
-                      </Button>
-                    )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      disabled={u.id === currentUser?.id}
-                      onClick={() => setDeleteTarget(u)}
-                      title="Delete"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            {!loading && users.length === 0 && (
-              <tr>
-                <td colSpan={5} className="p-6 text-center text-muted-foreground">
-                  No users yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex flex-col gap-3 md:gap-0">
+        <div className="flex flex-col gap-3 md:hidden">
+          {pageUsers.map((u) => (
+            <RecordCard key={u.id}>
+              <p className="font-medium truncate">{u.full_name || "—"}</p>
+              <p className="text-xs text-muted-foreground truncate">{u.email || "—"}</p>
+              <p className="text-xs capitalize mt-1">{u.role || "—"} · {u.salesperson_name || "no label"}</p>
+              <div className="flex justify-end gap-1 mt-2">
+                <Button variant="ghost" size="icon" className="size-11" onClick={() => openEdit(u)} title="Edit">
+                  <Pencil />
+                </Button>
+                {u.role === "cge" && u.id !== currentUser?.id && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-11"
+                    title="Offboard CGE"
+                    onClick={() => {
+                      setOffboardTarget(u);
+                      setSuccessorId("");
+                    }}
+                  >
+                    <UserMinus />
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="size-11"
+                  disabled={u.id === currentUser?.id}
+                  onClick={() => setDeleteTarget(u)}
+                  title="Delete"
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+            </RecordCard>
+          ))}
+          {!loading && users.length === 0 && (
+            <p className="p-6 text-center text-sm text-muted-foreground">No users yet.</p>
+          )}
+        </div>
+        <DataTableShell loading={loading} className="hidden md:block">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead className="hidden lg:table-cell">Shopify label</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {!loading &&
+                pageUsers.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="font-medium max-w-[10rem] truncate">{u.full_name || "—"}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-[14rem] truncate">{u.email || "—"}</TableCell>
+                    <TableCell className="capitalize">{u.role || "—"}</TableCell>
+                    <TableCell className="hidden lg:table-cell truncate max-w-[10rem]">{u.salesperson_name || "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(u)} title="Edit">
+                          <Pencil />
+                        </Button>
+                        {u.role === "cge" && u.id !== currentUser?.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Offboard CGE"
+                            onClick={() => {
+                              setOffboardTarget(u);
+                              setSuccessorId("");
+                            }}
+                          >
+                            <UserMinus />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          disabled={u.id === currentUser?.id}
+                          onClick={() => setDeleteTarget(u)}
+                          title="Delete"
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              {!loading && users.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
+                    No users yet.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DataTableShell>
       </div>
 
       {!loading && users.length > 0 && (
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-xs text-muted-foreground">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, users.length)} of {users.length}
-          </p>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              Previous
-            </Button>
-            <span className="text-xs text-muted-foreground tabular-nums">
-              Page {page} of {pageCount}
-            </span>
-            <Button variant="outline" size="sm" disabled={page >= pageCount} onClick={() => setPage((p) => p + 1)}>
-              Next
-            </Button>
-          </div>
-        </div>
+        <PagePagination page={page} pageCount={pageCount} onPageChange={setPage} />
       )}
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
@@ -312,15 +345,15 @@ export function SettingsUserManagement() {
             <DialogTitle className="font-heading">{formMode === "create" ? "Add user" : "Edit user"}</DialogTitle>
           </DialogHeader>
           <div className="grid gap-3 py-2">
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <Label>Full name</Label>
               <Input value={form.full_name} onChange={(e) => setForm((f) => ({ ...f, full_name: e.target.value }))} />
             </div>
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <Label>Email</Label>
               <Input type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <Label>{formMode === "create" ? "Password" : "New password (optional)"}</Label>
               <Input
                 type="password"
@@ -328,7 +361,7 @@ export function SettingsUserManagement() {
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
               />
             </div>
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <Label>Role</Label>
               <Select value={form.role} onValueChange={(v: FormState["role"]) => setForm((f) => ({ ...f, role: v }))}>
                 <SelectTrigger>
@@ -336,14 +369,19 @@ export function SettingsUserManagement() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="supervisor">Supervisor</SelectItem>
                   <SelectItem value="cge">CGE</SelectItem>
                   <SelectItem value="salesperson">Salesperson</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {(form.role === "salesperson" || form.role === "cge") && (
-              <div className="space-y-1.5">
-                <Label>{form.role === "salesperson" ? "Shopify salesperson name" : "Display name (optional)"}</Label>
+            {(form.role === "salesperson" || form.role === "cge" || form.role === "supervisor") && (
+              <div className="flex flex-col gap-1.5">
+                <Label>
+                  {form.role === "salesperson"
+                    ? "Shopify salesperson name"
+                    : "Display name (optional)"}
+                </Label>
                 <Input
                   value={form.salesperson_name}
                   onChange={(e) => setForm((f) => ({ ...f, salesperson_name: e.target.value }))}
@@ -395,13 +433,13 @@ export function SettingsUserManagement() {
           <DialogHeader>
             <DialogTitle className="font-heading">Offboard CGE</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 text-sm">
+          <div className="flex flex-col gap-3 text-sm">
             <p className="text-muted-foreground">
               Deactivates send-as email, removes CGE role, reassigns open tasks/threads, and bans login.
               Email history stays in the system.
             </p>
             <p className="font-medium">{offboardTarget?.full_name || offboardTarget?.email}</p>
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <Label>Successor (optional)</Label>
               <Select value={successorId || "__none__"} onValueChange={(v) => setSuccessorId(v === "__none__" ? "" : v)}>
                 <SelectTrigger>

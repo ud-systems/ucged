@@ -18,10 +18,24 @@ import {
 } from "@/hooks/use-cge-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { UnreadCountPill } from "@/components/UnreadCountPill";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  DataTableShell,
+  PageFrame,
+  PagePagination,
+  RecordCard,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/layout";
 import { daysQuietFromOrders, formatDaysQuiet } from "@/lib/days-quiet";
 import { formatMoney } from "@/lib/format-money";
 import { SEGMENT_LABELS, segmentBadgeClass, type CgeSegment } from "@/lib/segments";
@@ -147,30 +161,40 @@ export default function CustomerPage() {
   }, [bundle?.days_quiet, orders, customer?.rfm_recency_days]);
 
   if (isLoading) {
-    return <div className="p-6 lg:p-8 text-muted-foreground">Loading customer…</div>;
+    return (
+      <PageFrame>
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-72" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-2xl" />
+          ))}
+        </div>
+      </PageFrame>
+    );
   }
   if (!customer) {
     return (
-      <div className="p-6 lg:p-8 space-y-3">
+      <PageFrame>
         <p>Customer not found.</p>
         <Button variant="outline" onClick={() => navigate("/queue")}>
           Back to queue
         </Button>
-      </div>
+      </PageFrame>
     );
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 w-full max-w-none">
+    <PageFrame className="w-full max-w-none">
       <Button variant="ghost" size="sm" className="-ml-2 w-fit" asChild>
         <Link to="/queue">
-          <ArrowLeft className="h-4 w-4 mr-1" /> Queue
+          <ArrowLeft data-icon="inline-start" /> Queue
         </Link>
       </Button>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="min-w-0 space-y-2">
-          <h1 className="font-heading text-3xl font-semibold tracking-tight">{customer.name || "Customer"}</h1>
+      <div data-page-header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0 flex flex-col gap-2">
+          <h1 className="font-heading text-2xl sm:text-3xl font-semibold tracking-tight">{customer.name || "Customer"}</h1>
           <p className="text-sm text-muted-foreground break-all">
             {customer.email || "No email"}
             <span className="mx-2 text-border">·</span>
@@ -190,42 +214,42 @@ export default function CustomerPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 shrink-0">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 shrink-0">
           <Button
             type="button"
-            className="justify-between rounded-xl border-0 bg-neutral-800 text-white hover:bg-neutral-900 min-w-[7.5rem]"
+            className="justify-between rounded-xl border-0 bg-neutral-800 text-white hover:bg-neutral-900"
             onClick={() => setCallOpen(true)}
           >
             Call
-            <Phone className="h-4 w-4 ml-2" />
+            <Phone data-icon="inline-end" />
           </Button>
           <Button
             type="button"
-            className="justify-between rounded-xl border-0 bg-neutral-700 text-white hover:bg-neutral-800 disabled:opacity-50 min-w-[7.5rem]"
+            className="justify-between rounded-xl border-0 bg-neutral-700 text-white hover:bg-neutral-800 disabled:opacity-50"
             disabled={!customer.email}
             onClick={() => setEmailOpen(true)}
           >
             Email
-            <Mail className="h-4 w-4 ml-2" />
+            <Mail data-icon="inline-end" />
           </Button>
           <Button
-            className="justify-between rounded-xl border-0 bg-[#25D366] text-white hover:bg-[#1EBE5A] disabled:opacity-50 min-w-[7.5rem]"
+            className="justify-between rounded-xl border-0 bg-[#25D366] text-white hover:bg-[#1EBE5A] disabled:opacity-50"
             asChild
             disabled={!wa}
           >
             <a href={wa ? `https://wa.me/${wa}` : undefined} target="_blank" rel="noreferrer">
               WhatsApp
-              <WhatsAppIcon className="h-4 w-4 ml-2" />
+              <WhatsAppIcon data-icon="inline-end" />
             </a>
           </Button>
           <Button
-            className="justify-between rounded-xl border-0 bg-neutral-500 text-white hover:bg-neutral-600 disabled:opacity-50 min-w-[7.5rem]"
+            className="justify-between rounded-xl border-0 bg-neutral-500 text-white hover:bg-neutral-600 disabled:opacity-50"
             asChild
             disabled={!tel}
           >
             <a href={tel ? `sms:${tel}` : undefined}>
               SMS
-              <Smartphone className="h-4 w-4 ml-2" />
+              <Smartphone data-icon="inline-end" />
             </a>
           </Button>
         </div>
@@ -273,15 +297,15 @@ export default function CustomerPage() {
         }}
         className="w-full"
       >
-        <TabsList className="inline-flex w-fit h-auto flex-wrap justify-start gap-1">
-          <TabsTrigger value="orders">Orders ({orders.length})</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-          {hasCapability("send_mail") && <TabsTrigger value="email">Email</TabsTrigger>}
-          <TabsTrigger value="log">Log outreach</TabsTrigger>
-          {hasCapability("use_grok") && <TabsTrigger value="grok">AI Draft</TabsTrigger>}
+        <TabsList className="inline-flex w-full md:w-fit h-auto flex-nowrap overflow-x-auto justify-start gap-1">
+          <TabsTrigger value="orders" className="shrink-0">Orders ({orders.length})</TabsTrigger>
+          <TabsTrigger value="activity" className="shrink-0">Activity</TabsTrigger>
+          {hasCapability("send_mail") && <TabsTrigger value="email" className="shrink-0">Email</TabsTrigger>}
+          <TabsTrigger value="log" className="shrink-0">Log outreach</TabsTrigger>
+          {hasCapability("use_grok") && <TabsTrigger value="grok" className="shrink-0">AI Draft</TabsTrigger>}
         </TabsList>
 
-        <TabsContent value="orders" className="mt-4 space-y-3">
+        <TabsContent value="orders" className="mt-4 flex flex-col gap-3">
           {orders.length === 0 ? (
             <p className="text-sm text-muted-foreground rounded-2xl border bg-card p-6">
               No orders found for this customer
@@ -297,85 +321,99 @@ export default function CustomerPage() {
                   Shopify metric may not match the linked order history.
                 </p>
               )}
-              <div className="rounded-2xl border bg-card overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-                    <tr>
-                      <th className="text-left p-3">Order</th>
-                      <th className="text-left p-3">Status</th>
-                      <th className="text-left p-3">Fulfillment</th>
-                      <th className="text-left p-3">Date</th>
-                      <th className="text-right p-3">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedOrders.map((o: {
-                      id: string;
-                      order_number?: string | null;
-                      financial_status?: string | null;
-                      fulfillment_status?: string | null;
-                      shopify_created_at?: string | null;
-                      current_total?: number | string | null;
-                      total?: number | string | null;
-                      currency_code?: string | null;
-                      from_related_account?: boolean;
-                    }) => (
-                      <tr
-                        key={o.id}
-                        className="border-t hover:bg-accent/40 cursor-pointer"
-                        onClick={() => navigate(`/orders/${o.id}`)}
-                      >
-                        <td className="p-3 font-medium">
-                          {o.order_number || o.id.slice(0, 8)}
-                          {o.from_related_account ? (
-                            <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                              related
-                            </span>
-                          ) : null}
-                        </td>
-                        <td className="p-3 capitalize text-muted-foreground">{o.financial_status || "—"}</td>
-                        <td className="p-3 capitalize text-muted-foreground">{o.fulfillment_status || "—"}</td>
-                        <td className="p-3 text-muted-foreground">
-                          {o.shopify_created_at ? new Date(o.shopify_created_at).toLocaleDateString() : "—"}
-                        </td>
-                        <td className="p-3 text-right tabular-nums font-medium">
+              <div className="flex flex-col gap-3 md:gap-0">
+                <div className="flex flex-col gap-3 md:hidden">
+                  {pagedOrders.map((o: {
+                    id: string;
+                    order_number?: string | null;
+                    financial_status?: string | null;
+                    fulfillment_status?: string | null;
+                    shopify_created_at?: string | null;
+                    current_total?: number | string | null;
+                    total?: number | string | null;
+                    currency_code?: string | null;
+                    from_related_account?: boolean;
+                  }) => (
+                    <RecordCard key={o.id} onClick={() => navigate(`/orders/${o.id}`)}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">
+                            {o.order_number || o.id.slice(0, 8)}
+                            {o.from_related_account ? (
+                              <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">related</span>
+                            ) : null}
+                          </p>
+                          <p className="text-xs text-muted-foreground capitalize mt-1">
+                            {o.financial_status || "—"} · {o.fulfillment_status || "—"}
+                          </p>
+                        </div>
+                        <p className="font-medium tabular-nums shrink-0">
                           {formatMoney(o.current_total ?? o.total ?? 0, o.currency_code || displayCurrency)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </p>
+                      </div>
+                    </RecordCard>
+                  ))}
+                </div>
+                <DataTableShell className="hidden md:block">
+                  <Table>
+                    <TableHeader className="bg-muted/40">
+                      <TableRow>
+                        <TableHead>Order</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="hidden lg:table-cell">Fulfillment</TableHead>
+                        <TableHead className="hidden lg:table-cell">Date</TableHead>
+                        <TableHead className="text-right">Total</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {pagedOrders.map((o: {
+                        id: string;
+                        order_number?: string | null;
+                        financial_status?: string | null;
+                        fulfillment_status?: string | null;
+                        shopify_created_at?: string | null;
+                        current_total?: number | string | null;
+                        total?: number | string | null;
+                        currency_code?: string | null;
+                        from_related_account?: boolean;
+                      }) => (
+                        <TableRow
+                          key={o.id}
+                          className="cursor-pointer"
+                          onClick={() => navigate(`/orders/${o.id}`)}
+                        >
+                          <TableCell className="font-medium">
+                            {o.order_number || o.id.slice(0, 8)}
+                            {o.from_related_account ? (
+                              <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                                related
+                              </span>
+                            ) : null}
+                          </TableCell>
+                          <TableCell className="capitalize text-muted-foreground">{o.financial_status || "—"}</TableCell>
+                          <TableCell className="hidden lg:table-cell capitalize text-muted-foreground">
+                            {o.fulfillment_status || "—"}
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell text-muted-foreground">
+                            {o.shopify_created_at ? new Date(o.shopify_created_at).toLocaleDateString() : "—"}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums font-medium">
+                            {formatMoney(o.current_total ?? o.total ?? 0, o.currency_code || displayCurrency)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </DataTableShell>
               </div>
               {orders.length > ORDERS_PAGE_SIZE && (
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs text-muted-foreground">
-                    Page {ordersPage} of {ordersPageCount} · {orders.length} orders
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={ordersPage <= 1}
-                      onClick={() => setOrdersPage((p) => Math.max(1, p - 1))}
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={ordersPage >= ordersPageCount}
-                      onClick={() => setOrdersPage((p) => Math.min(ordersPageCount, p + 1))}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
+                <PagePagination page={ordersPage} pageCount={ordersPageCount} onPageChange={setOrdersPage} />
               )}
             </>
           )}
         </TabsContent>
 
-        <TabsContent value="activity" className="mt-4 space-y-3">
+        <TabsContent value="activity" className="mt-4 flex flex-col gap-3">
           {events.length === 0 && (
             <p className="text-sm text-muted-foreground rounded-2xl border bg-card p-6">No outreach logged yet.</p>
           )}
@@ -394,7 +432,7 @@ export default function CustomerPage() {
         </TabsContent>
 
         {hasCapability("send_mail") && (
-          <TabsContent value="email" className="mt-4 space-y-4">
+          <TabsContent value="email" className="mt-4 flex flex-col gap-4">
             {!mailIdentity && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 text-amber-900 text-sm px-4 py-3">
                 No active send-as email on your account. Ask an admin to assign one under Settings → Mail identities.
@@ -426,7 +464,7 @@ export default function CustomerPage() {
                       >
                         <div className="flex items-center justify-between gap-1">
                           <p className="text-sm font-medium truncate">{t.subject || "(no subject)"}</p>
-                          {t.unread_inbound && <Badge className="text-[10px] shrink-0">New</Badge>}
+                          {t.unread_inbound && <UnreadCountPill count={1} className="shrink-0" />}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">
                           {t.last_message_at ? new Date(t.last_message_at).toLocaleString() : "—"}
@@ -437,15 +475,15 @@ export default function CustomerPage() {
                 </ul>
               </div>
 
-              <div className="rounded-2xl border bg-card p-4 space-y-3">
+              <div className="rounded-2xl border bg-card p-4 flex flex-col gap-3 min-w-0">
                 {selectedThreadId && (
-                  <div className="space-y-3 max-h-[320px] overflow-y-auto pr-1">
+                  <div className="flex flex-col gap-3 max-h-[320px] overflow-y-auto pr-1">
                     {messages.map((m) => (
                       <div
                         key={m.id}
                         className={cn(
                           "rounded-xl border p-3 text-sm",
-                          m.direction === "outbound" ? "bg-primary/5 ml-6" : "bg-muted/40 mr-6",
+                          m.direction === "outbound" ? "bg-primary/5 sm:ml-6" : "bg-muted/40 sm:mr-6",
                         )}
                       >
                         <div className="flex justify-between gap-2 text-xs text-muted-foreground mb-1">
@@ -465,7 +503,7 @@ export default function CustomerPage() {
                   </div>
                 )}
 
-                <div className="space-y-1.5">
+                <div className="flex flex-col gap-1.5">
                   <p className="text-xs text-muted-foreground">Subject</p>
                   <Input
                     value={draftSubject}
@@ -474,7 +512,7 @@ export default function CustomerPage() {
                     disabled={Boolean(selectedThreadId) && messages.length > 0}
                   />
                 </div>
-                <div className="space-y-1.5">
+                <div className="flex flex-col gap-1.5">
                   <p className="text-xs text-muted-foreground">Message</p>
                   <Textarea
                     className="min-h-[120px]"
@@ -551,7 +589,7 @@ export default function CustomerPage() {
 
         <TabsContent value="log" className="mt-4">
           <div className="rounded-2xl border bg-card p-5 grid gap-3 md:grid-cols-2 xl:grid-cols-4 md:items-end">
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <p className="text-xs text-muted-foreground">Channel</p>
               <Select value={channel} onValueChange={(v: "call" | "whatsapp" | "sms" | "email") => setChannel(v)}>
                 <SelectTrigger>
@@ -565,7 +603,7 @@ export default function CustomerPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="flex flex-col gap-1.5">
               <p className="text-xs text-muted-foreground">Outcome</p>
               <Select value={outcome} onValueChange={setOutcome}>
                 <SelectTrigger>
@@ -582,7 +620,7 @@ export default function CustomerPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5 md:col-span-2 xl:col-span-1">
+            <div className="flex flex-col gap-1.5 md:col-span-2 xl:col-span-1">
               <p className="text-xs text-muted-foreground">Notes</p>
               <Textarea
                 value={notes}
@@ -617,10 +655,10 @@ export default function CustomerPage() {
         </TabsContent>
 
         {hasCapability("use_grok") && (
-          <TabsContent value="grok" className="mt-4 space-y-4">
-            <div className="rounded-2xl border bg-card p-5 space-y-4">
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="space-y-1.5 min-w-[160px]">
+          <TabsContent value="grok" className="mt-4 flex flex-col gap-4">
+            <div className="rounded-2xl border bg-card p-5 flex flex-col gap-4">
+              <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-end gap-3">
+                <div className="flex flex-col gap-1.5 w-full sm:w-auto">
                   <p className="text-xs text-muted-foreground">Channel</p>
                   <Select value={channel} onValueChange={(v: "call" | "whatsapp" | "sms" | "email") => setChannel(v)}>
                     <SelectTrigger>
@@ -660,7 +698,7 @@ export default function CustomerPage() {
               </div>
 
               {draftWarnings.length > 0 && (
-                <ul className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 space-y-1">
+                <ul className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex flex-col gap-1">
                   {draftWarnings.map((w) => (
                     <li key={w}>{w}</li>
                   ))}
@@ -668,12 +706,12 @@ export default function CustomerPage() {
               )}
 
               {channel === "email" && (
-                <div className="space-y-1.5">
+                <div className="flex flex-col gap-1.5">
                   <p className="text-xs text-muted-foreground">Subject</p>
                   <Input value={draftSubject} onChange={(e) => setDraftSubject(e.target.value)} />
                 </div>
               )}
-              <div className="space-y-1.5">
+              <div className="flex flex-col gap-1.5">
                 <p className="text-xs text-muted-foreground">Draft (human sends — AI never auto-sends)</p>
                 <Textarea className="min-h-[160px]" value={draftBody} onChange={(e) => setDraftBody(e.target.value)} />
               </div>
@@ -755,6 +793,6 @@ export default function CustomerPage() {
         customerName={customer.name}
         customerEmail={customer.email}
       />
-    </div>
+    </PageFrame>
   );
 }

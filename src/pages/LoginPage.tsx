@@ -50,7 +50,7 @@ export default function LoginPage() {
       className="min-h-screen grid place-items-center bg-[radial-gradient(circle_at_top,_hsl(90_33%_94%),_hsl(90_33%_96%)_45%)] px-4"
     >
       <form
-        className="w-full max-w-md rounded-2xl border bg-card p-8 shadow-[var(--shadow-card)] space-y-5"
+        className="w-full max-w-md rounded-2xl border bg-card p-6 sm:p-8 shadow-[var(--shadow-card)] flex flex-col gap-5"
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
@@ -60,9 +60,9 @@ export default function LoginPage() {
           if (err) setError(err);
         }}
       >
-        <div className="space-y-1">
-          <div data-login-el className="h-10 w-10 rounded-xl bg-primary grid place-items-center mb-3">
-            <img src="/white logo.png" alt="Logo" className="h-5 w-5 object-contain" />
+        <div className="flex flex-col gap-1">
+          <div data-login-el className="size-10 rounded-xl bg-primary grid place-items-center mb-3">
+            <img src="/white logo.png" alt="Logo" className="size-5 object-contain" />
           </div>
           <h1 data-login-el className="font-heading text-2xl font-semibold">
             Sign in to CGE
@@ -76,7 +76,7 @@ export default function LoginPage() {
             </p>
           )}
         </div>
-        <div data-login-el className="space-y-2">
+        <div data-login-el className="flex flex-col gap-2">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
@@ -88,7 +88,7 @@ export default function LoginPage() {
             placeholder="email@uniquedistribution.com"
           />
         </div>
-        <div data-login-el className="space-y-2">
+        <div data-login-el className="flex flex-col gap-2">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
             <Input

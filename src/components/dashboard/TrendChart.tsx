@@ -1,48 +1,110 @@
+import { useId, useMemo } from "react";
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from "recharts";
 import type { TimeseriesPoint } from "@/hooks/use-cge-data";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
+
+const chartConfig = {
+  outreach_count: {
+    label: "Outreach",
+    color: "hsl(var(--chart-1))",
+  },
+  recoveries: {
+    label: "Recoveries",
+    color: "hsl(var(--chart-2))",
+  },
+} satisfies ChartConfig;
+
+function formatDayTick(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
 
 export function TrendChart({ points }: { points: TimeseriesPoint[] }) {
-  const max = Math.max(1, ...points.map((p) => Math.max(p.outreach_count, p.recoveries)));
-  const w = 560;
-  const h = 120;
-  const pad = 8;
+  const reactId = useId().replace(/:/g, "");
+  const outreachFill = `fillOutreach-${reactId}`;
+  const recoveryFill = `fillRecoveries-${reactId}`;
 
-  const toX = (i: number) => {
-    if (points.length <= 1) return pad;
-    return pad + (i / (points.length - 1)) * (w - pad * 2);
-  };
-  const toY = (v: number) => h - pad - (v / max) * (h - pad * 2);
-
-  const outreachPath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(p.outreach_count).toFixed(1)}`)
-    .join(" ");
-  const recoveryPath = points
-    .map((p, i) => `${i === 0 ? "M" : "L"} ${toX(i).toFixed(1)} ${toY(p.recoveries).toFixed(1)}`)
-    .join(" ");
+  const data = useMemo(
+    () =>
+      points.map((p) => ({
+        date: typeof p.day === "string" ? p.day.slice(0, 10) : String(p.day),
+        outreach_count: Number(p.outreach_count ?? 0),
+        recoveries: Number(p.recoveries ?? 0),
+      })),
+    [points],
+  );
 
   return (
-    <div className="rounded-2xl border bg-card p-4 shadow-[var(--shadow-card)]">
-      <div className="flex items-center justify-between mb-3">
-        <div>
-          <h2 className="font-heading text-lg font-semibold">Trend</h2>
-          <p className="text-xs text-muted-foreground">Daily outreach vs recoveries</p>
-        </div>
-        <div className="flex gap-3 text-[11px] text-muted-foreground">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-primary" /> Outreach
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-600" /> Recoveries
-          </span>
-        </div>
-      </div>
-      {points.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-8 text-center">No data for this period.</p>
-      ) : (
-        <svg viewBox={`0 0 ${w} ${h}`} className="w-full h-[140px]" role="img" aria-label="Performance trend">
-          <path d={outreachPath} fill="none" stroke="hsl(var(--primary))" strokeWidth="2.5" strokeLinecap="round" />
-          <path d={recoveryPath} fill="none" stroke="#059669" strokeWidth="2" strokeLinecap="round" strokeDasharray="4 3" />
-        </svg>
-      )}
-    </div>
+    <Card className="rounded-2xl pt-0 shadow-[var(--shadow-card)]">
+      <CardHeader className="flex flex-col gap-1 border-b py-4 sm:py-5 p-4 sm:p-6">
+        <CardTitle className="font-heading text-lg">Trend</CardTitle>
+        <CardDescription>Daily outreach vs recoveries for the selected period</CardDescription>
+      </CardHeader>
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+        {data.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No data for this period.</p>
+        ) : (
+          <ChartContainer config={chartConfig} className="aspect-auto h-[180px] sm:h-[250px] w-full">
+            <AreaChart data={data}>
+              <defs>
+                <linearGradient id={outreachFill} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-outreach_count)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-outreach_count)" stopOpacity={0.1} />
+                </linearGradient>
+                <linearGradient id={recoveryFill} x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-recoveries)" stopOpacity={0.8} />
+                  <stop offset="95%" stopColor="var(--color-recoveries)" stopOpacity={0.1} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="date"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                minTickGap={32}
+                tickFormatter={formatDayTick}
+              />
+              <YAxis domain={[0, "auto"]} hide allowDataOverflow={false} />
+              <ChartTooltip
+                cursor={false}
+                content={
+                  <ChartTooltipContent
+                    labelFormatter={(value) => formatDayTick(String(value))}
+                    indicator="dot"
+                  />
+                }
+              />
+              <Area
+                dataKey="recoveries"
+                type="monotone"
+                fill={`url(#${recoveryFill})`}
+                stroke="var(--color-recoveries)"
+                strokeWidth={2}
+                baseValue={0}
+              />
+              <Area
+                dataKey="outreach_count"
+                type="monotone"
+                fill={`url(#${outreachFill})`}
+                stroke="var(--color-outreach_count)"
+                strokeWidth={2}
+                baseValue={0}
+              />
+              <ChartLegend content={<ChartLegendContent />} />
+            </AreaChart>
+          </ChartContainer>
+        )}
+      </CardContent>
+    </Card>
   );
 }

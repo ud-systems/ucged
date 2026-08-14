@@ -14,6 +14,16 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
 import { Switch } from "@/components/ui/switch";
+import {
+  DataTableShell,
+  RecordCard,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/layout";
 
 export function SettingsMailIdentities() {
   const { data: identities = [], isLoading } = useMailIdentities();
@@ -50,7 +60,7 @@ export function SettingsMailIdentities() {
   }, [userId, email, cges]);
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <div>
         <SettingsSectionTitle
           title="CGE send-as emails"
@@ -58,11 +68,11 @@ export function SettingsMailIdentities() {
         />
       </div>
 
-      <div className="rounded-xl border p-4 space-y-3">
+      <div className="rounded-xl border p-4 flex flex-col gap-3">
         <Label>Inbound reply domain</Label>
         <div className="flex flex-wrap gap-2">
           <Input
-            className="max-w-md"
+            className="w-full max-w-md"
             placeholder="inbound.yourdomain.com"
             value={inboundDomain || settings?.cge_mail_inbound_domain || ""}
             onChange={(e) => setInboundDomain(e.target.value)}
@@ -94,7 +104,7 @@ export function SettingsMailIdentities() {
       </div>
 
       <div className="rounded-xl border p-4 grid md:grid-cols-3 gap-3 items-end">
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label>CGE user</Label>
           <Select value={userId} onValueChange={fillFromCge}>
             <SelectTrigger>
@@ -110,7 +120,7 @@ export function SettingsMailIdentities() {
             </SelectContent>
           </Select>
         </div>
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label>Send-as email</Label>
           <Input
             type="email"
@@ -119,7 +129,7 @@ export function SettingsMailIdentities() {
             placeholder="Loads from CGE login email"
           />
         </div>
-        <div className="space-y-1.5">
+        <div className="flex flex-col gap-1.5">
           <Label>Display name</Label>
           <Input
             value={displayName}
@@ -128,7 +138,7 @@ export function SettingsMailIdentities() {
           />
         </div>
         <Button
-          className="rounded-xl md:col-span-3 w-fit"
+          className="rounded-xl md:col-span-3 w-full sm:w-fit"
           disabled={!userId || !email.includes("@") || save.isPending}
           onClick={async () => {
             try {
@@ -153,62 +163,91 @@ export function SettingsMailIdentities() {
         </Button>
       </div>
 
-      <div className="rounded-2xl border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="text-left p-3">CGE</th>
-              <th className="text-left p-3">Send-as</th>
-              <th className="text-left p-3">Display name</th>
-              <th className="text-left p-3">Active</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr>
-                <td colSpan={4} className="p-6 text-muted-foreground">
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {identities.map((i) => (
-              <tr key={i.id} className="border-t">
-                <td className="p-3">{labelFor(i.user_id)}</td>
-                <td className="p-3">{i.email}</td>
-                <td className="p-3">{i.display_name || "—"}</td>
-                <td className="p-3">
-                  <div className="flex items-center gap-2">
-                    <Switch
-                      checked={i.active}
-                      onCheckedChange={async (checked) => {
-                        try {
-                          await save.mutateAsync({
-                            id: i.id,
-                            user_id: i.user_id,
-                            email: i.email,
-                            display_name: i.display_name,
-                            active: checked,
-                          });
-                          toast.success(checked ? "Activated" : "Deactivated");
-                        } catch (e: unknown) {
-                          toast.error(e instanceof Error ? e.message : "Update failed");
-                        }
-                      }}
-                    />
-                    <Badge variant="outline">{i.active ? "active" : "off"}</Badge>
-                  </div>
-                </td>
-              </tr>
-            ))}
-            {!isLoading && identities.length === 0 && (
-              <tr>
-                <td colSpan={4} className="p-8 text-center text-muted-foreground">
-                  No mail identities yet. Assign a company send-as address to each CGE.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex flex-col gap-3 md:gap-0">
+        <div className="flex flex-col gap-3 md:hidden">
+          {identities.map((i) => (
+            <RecordCard key={i.id}>
+              <p className="font-medium truncate">{labelFor(i.user_id)}</p>
+              <p className="text-xs text-muted-foreground truncate">{i.email}</p>
+              <p className="text-xs truncate mt-1">{i.display_name || "—"}</p>
+              <div className="flex items-center gap-2 mt-2">
+                <Switch
+                  checked={i.active}
+                  onCheckedChange={async (checked) => {
+                    try {
+                      await save.mutateAsync({
+                        id: i.id,
+                        user_id: i.user_id,
+                        email: i.email,
+                        display_name: i.display_name,
+                        active: checked,
+                      });
+                      toast.success(checked ? "Activated" : "Deactivated");
+                    } catch (e: unknown) {
+                      toast.error(e instanceof Error ? e.message : "Update failed");
+                    }
+                  }}
+                />
+                <Badge variant="outline">{i.active ? "active" : "off"}</Badge>
+              </div>
+            </RecordCard>
+          ))}
+          {!isLoading && identities.length === 0 && (
+            <p className="p-8 text-center text-sm text-muted-foreground">
+              No mail identities yet. Assign a company send-as address to each CGE.
+            </p>
+          )}
+        </div>
+        <DataTableShell loading={isLoading} className="hidden md:block">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead>CGE</TableHead>
+                <TableHead>Send-as</TableHead>
+                <TableHead className="hidden lg:table-cell">Display name</TableHead>
+                <TableHead>Active</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {identities.map((i) => (
+                <TableRow key={i.id}>
+                  <TableCell className="truncate max-w-[10rem]">{labelFor(i.user_id)}</TableCell>
+                  <TableCell className="truncate max-w-[14rem]">{i.email}</TableCell>
+                  <TableCell className="hidden lg:table-cell truncate max-w-[10rem]">{i.display_name || "—"}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={i.active}
+                        onCheckedChange={async (checked) => {
+                          try {
+                            await save.mutateAsync({
+                              id: i.id,
+                              user_id: i.user_id,
+                              email: i.email,
+                              display_name: i.display_name,
+                              active: checked,
+                            });
+                            toast.success(checked ? "Activated" : "Deactivated");
+                          } catch (e: unknown) {
+                            toast.error(e instanceof Error ? e.message : "Update failed");
+                          }
+                        }}
+                      />
+                      <Badge variant="outline">{i.active ? "active" : "off"}</Badge>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!isLoading && identities.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="p-8 text-center text-muted-foreground">
+                    No mail identities yet. Assign a company send-as address to each CGE.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DataTableShell>
       </div>
     </div>
   );

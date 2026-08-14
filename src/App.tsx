@@ -15,6 +15,7 @@ import TemplatesPage from "@/pages/TemplatesPage";
 import CampaignsPage from "@/pages/CampaignsPage";
 import CampaignDetailPage from "@/pages/CampaignDetailPage";
 import MailInboxPage from "@/pages/MailInboxPage";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 20_000, retry: 1 } },
@@ -24,8 +25,12 @@ function Protected({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   if (loading) {
     return (
-      <div className="min-h-screen grid place-items-center bg-background text-muted-foreground font-body">
-        Loading…
+      <div className="min-h-screen grid place-items-center bg-background p-6">
+        <div className="flex flex-col gap-3 w-full max-w-xs">
+          <Skeleton className="h-8 w-32 mx-auto" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3 mx-auto" />
+        </div>
       </div>
     );
   }

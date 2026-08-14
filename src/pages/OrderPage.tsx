@@ -3,7 +3,19 @@ import { ArrowLeft } from "lucide-react";
 import { useOrderDetail } from "@/hooks/use-cge-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { formatMoney } from "@/lib/format-money";
+import {
+  DataTableShell,
+  PageFrame,
+  RecordCard,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/layout";
 
 export default function OrderPage() {
   const { orderId } = useParams<{ orderId: string }>();
@@ -13,35 +25,44 @@ export default function OrderPage() {
   const items = data?.items ?? [];
 
   if (isLoading) {
-    return <div className="p-6 lg:p-8 text-muted-foreground">Loading order…</div>;
+    return (
+      <PageFrame>
+        <Skeleton className="h-8 w-40" />
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 rounded-2xl" />
+          ))}
+        </div>
+      </PageFrame>
+    );
   }
   if (!order) {
     return (
-      <div className="p-6 lg:p-8 space-y-3">
+      <PageFrame>
         <p>Order not found.</p>
         <Button variant="outline" onClick={() => navigate(-1)}>
           Go back
         </Button>
-      </div>
+      </PageFrame>
     );
   }
 
   return (
-    <div className="p-6 lg:p-8 space-y-6 w-full max-w-none">
-      <div className="space-y-2">
-        <Button variant="ghost" size="sm" className="-ml-2" asChild>
+    <PageFrame className="w-full max-w-none">
+      <div data-page-header className="flex flex-col gap-2">
+        <Button variant="ghost" size="sm" className="-ml-2 w-fit" asChild>
           {order.customer_id ? (
             <Link to={`/customers/${order.customer_id}`}>
-              <ArrowLeft className="h-4 w-4 mr-1" /> Customer
+              <ArrowLeft data-icon="inline-start" /> Customer
             </Link>
           ) : (
             <Link to="/queue">
-              <ArrowLeft className="h-4 w-4 mr-1" /> Queue
+              <ArrowLeft data-icon="inline-start" /> Queue
             </Link>
           )}
         </Button>
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-heading text-3xl font-semibold">{order.order_number || "Order"}</h1>
+          <h1 className="font-heading text-2xl sm:text-3xl font-semibold">{order.order_number || "Order"}</h1>
           <Badge variant="outline" className="capitalize">
             {order.financial_status || "—"}
           </Badge>
@@ -49,13 +70,13 @@ export default function OrderPage() {
             {order.fulfillment_status || "—"}
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground break-all">
           {order.customer_name || "Customer"} · {order.email || "No email"} ·{" "}
           {order.shopify_created_at ? new Date(order.shopify_created_at).toLocaleString() : "—"}
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {(
           [
             ["Total", order.current_total ?? order.total ?? 0],
@@ -64,9 +85,9 @@ export default function OrderPage() {
             ["Tax", order.total_tax ?? 0],
           ] as const
         ).map(([label, amount]) => (
-          <div key={label} className="rounded-2xl border bg-card p-4">
+          <div key={label} className="rounded-2xl border bg-card p-4 min-w-0">
             <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="font-heading text-xl font-semibold tabular-nums">
+            <p className="font-heading text-lg sm:text-xl font-semibold tabular-nums truncate">
               {formatMoney(amount, order.currency_code)}
             </p>
           </div>
@@ -92,39 +113,54 @@ export default function OrderPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border bg-card overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="text-left p-3">Product</th>
-              <th className="text-left p-3">Variant</th>
-              <th className="text-left p-3">SKU</th>
-              <th className="text-right p-3">Qty</th>
-              <th className="text-right p-3">Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((item) => (
-              <tr key={item.id} className="border-t">
-                <td className="p-3 font-medium">{item.product}</td>
-                <td className="p-3 text-muted-foreground">{item.variant || "—"}</td>
-                <td className="p-3 text-muted-foreground">{item.sku || "—"}</td>
-                <td className="p-3 text-right tabular-nums">{item.quantity}</td>
-                <td className="p-3 text-right tabular-nums">
-                  {formatMoney(item.price, order.currency_code)}
-                </td>
-              </tr>
-            ))}
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={5} className="p-6 text-center text-muted-foreground">
-                  No line items on file for this order.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex flex-col gap-3 md:gap-0">
+        <div className="flex flex-col gap-3 md:hidden">
+          {items.map((item) => (
+            <RecordCard key={item.id}>
+              <p className="font-medium truncate">{item.product}</p>
+              <p className="text-xs text-muted-foreground truncate">{item.variant || "—"} · {item.sku || "No SKU"}</p>
+              <div className="flex justify-between mt-2 text-sm">
+                <span>Qty {item.quantity}</span>
+                <span className="tabular-nums font-medium">{formatMoney(item.price, order.currency_code)}</span>
+              </div>
+            </RecordCard>
+          ))}
+          {items.length === 0 && (
+            <p className="p-6 text-center text-sm text-muted-foreground">No line items on file for this order.</p>
+          )}
+        </div>
+        <DataTableShell className="hidden md:block">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead>Product</TableHead>
+                <TableHead className="hidden lg:table-cell">Variant</TableHead>
+                <TableHead className="hidden lg:table-cell">SKU</TableHead>
+                <TableHead className="text-right">Qty</TableHead>
+                <TableHead className="text-right">Price</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => (
+                <TableRow key={item.id} data-stagger-item>
+                  <TableCell className="font-medium max-w-[16rem] truncate">{item.product}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-muted-foreground">{item.variant || "—"}</TableCell>
+                  <TableCell className="hidden lg:table-cell text-muted-foreground">{item.sku || "—"}</TableCell>
+                  <TableCell className="text-right tabular-nums">{item.quantity}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatMoney(item.price, order.currency_code)}</TableCell>
+                </TableRow>
+              ))}
+              {items.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
+                    No line items on file for this order.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DataTableShell>
       </div>
-    </div>
+    </PageFrame>
   );
 }

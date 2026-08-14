@@ -7,6 +7,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
 import {
+  DataTableShell,
+  RecordCard,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/layout";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -44,7 +54,7 @@ export function SettingsAssignments() {
     list.find((x) => x.user_id === id)?.label || id.slice(0, 8);
 
   return (
-    <div className="space-y-4">
+    <div className="flex flex-col gap-4">
       <SettingsSectionTitle
         title="CGE ↔ Salesperson"
         tip="Link CGEs to salespersons so each CGE sees customers owned via Shopify SP_Assigned / referred_by."
@@ -86,43 +96,54 @@ export function SettingsAssignments() {
         Link CGE to salesperson
       </Button>
 
-      <div className="rounded-2xl border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-            <tr>
-              <th className="text-left p-3">CGE</th>
-              <th className="text-left p-3">Salesperson</th>
-              <th className="text-right p-3">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr>
-                <td className="p-4 text-muted-foreground" colSpan={3}>
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {links.map((link: { id: string; cge_user_id: string; salesperson_user_id: string }) => (
-              <tr key={link.id} className="border-t">
-                <td className="p-3">{labelFor(link.cge_user_id, cges)}</td>
-                <td className="p-3">{labelFor(link.salesperson_user_id, salespeople)}</td>
-                <td className="p-3 text-right">
-                  <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(link)}>
-                    Remove
-                  </Button>
-                </td>
-              </tr>
-            ))}
-            {!isLoading && links.length === 0 && (
-              <tr>
-                <td className="p-6 text-muted-foreground text-center" colSpan={3}>
-                  No links yet. Create salesperson + CGE users first, then link them.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+      <div className="flex flex-col gap-3 md:gap-0">
+        <div className="flex flex-col gap-3 md:hidden">
+          {links.map((link: { id: string; cge_user_id: string; salesperson_user_id: string }) => (
+            <RecordCard key={link.id}>
+              <p className="font-medium truncate">{labelFor(link.cge_user_id, cges)}</p>
+              <p className="text-xs text-muted-foreground truncate">{labelFor(link.salesperson_user_id, salespeople)}</p>
+              <Button variant="ghost" size="sm" className="mt-2 w-full" onClick={() => setRemoveTarget(link)}>
+                Remove
+              </Button>
+            </RecordCard>
+          ))}
+          {!isLoading && links.length === 0 && (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              No links yet. Create salesperson + CGE users first, then link them.
+            </p>
+          )}
+        </div>
+        <DataTableShell loading={isLoading} className="hidden md:block">
+          <Table>
+            <TableHeader className="bg-muted/40">
+              <TableRow>
+                <TableHead>CGE</TableHead>
+                <TableHead>Salesperson</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {links.map((link: { id: string; cge_user_id: string; salesperson_user_id: string }) => (
+                <TableRow key={link.id}>
+                  <TableCell className="truncate max-w-[12rem]">{labelFor(link.cge_user_id, cges)}</TableCell>
+                  <TableCell className="truncate max-w-[12rem]">{labelFor(link.salesperson_user_id, salespeople)}</TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(link)}>
+                      Remove
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {!isLoading && links.length === 0 && (
+                <TableRow>
+                  <TableCell className="p-6 text-muted-foreground text-center" colSpan={3}>
+                    No links yet. Create salesperson + CGE users first, then link them.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </DataTableShell>
       </div>
 
       <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && !removing && setRemoveTarget(null)}>

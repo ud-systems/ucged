@@ -45,15 +45,15 @@ export function CustomerEmailComposeSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md z-[60] flex flex-col gap-0 overflow-hidden">
-        <SheetHeader className="text-left space-y-1 shrink-0 pr-8">
+      <SheetContent className="w-full sm:max-w-md z-[60] flex flex-col gap-0 overflow-hidden max-h-dvh">
+        <SheetHeader className="text-left flex flex-col gap-1 shrink-0 pr-8">
           <SheetTitle className="font-heading text-xl">Email</SheetTitle>
           <SheetDescription>
             Send from your CGE mailbox. Outreach is logged automatically when sent.
           </SheetDescription>
         </SheetHeader>
 
-        <div className="mt-5 flex-1 min-h-0 overflow-y-auto space-y-3 pb-2">
+        <div className="mt-5 flex-1 min-h-0 overflow-y-auto flex flex-col gap-3 pb-2">
           {!mailIdentity && (
             <p className="text-sm text-destructive rounded-xl border border-destructive/30 bg-destructive/5 p-3">
               No active send-as email. Ask an admin to assign your mail identity.
@@ -63,7 +63,7 @@ export function CustomerEmailComposeSheet({
             <p className="text-sm text-muted-foreground rounded-xl border p-3">This customer has no email on file.</p>
           )}
 
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <p className="text-xs text-muted-foreground">From</p>
             <Input
               value={mailIdentity ? `${mailIdentity.display_name} <${mailIdentity.email}>` : "—"}
@@ -71,7 +71,7 @@ export function CustomerEmailComposeSheet({
               className="rounded-xl bg-muted/40"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <p className="text-xs text-muted-foreground">To</p>
             <Input
               value={customerEmail || "—"}
@@ -79,7 +79,7 @@ export function CustomerEmailComposeSheet({
               className="rounded-xl bg-muted/40"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <p className="text-xs text-muted-foreground">Subject</p>
             <Input
               value={subject}
@@ -88,7 +88,7 @@ export function CustomerEmailComposeSheet({
               className="rounded-xl"
             />
           </div>
-          <div className="space-y-1.5">
+          <div className="flex flex-col gap-1.5">
             <p className="text-xs text-muted-foreground">Message</p>
             <Textarea
               value={body}

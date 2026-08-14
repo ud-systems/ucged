@@ -41,6 +41,15 @@ const roleCapabilities: Record<UserRole, AppCapability[]> = {
     "view_mail_inbox",
   ],
   salesperson: [],
+  supervisor: [
+    "view_queue",
+    "view_dashboard",
+    "view_followups",
+    "view_orders",
+    "use_grok",
+    "send_mail",
+    "view_mail_inbox",
+  ],
 };
 
 export function resolveCapabilities(roles: UserRole[]): AppCapability[] {
