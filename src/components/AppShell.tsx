@@ -4,7 +4,7 @@ import {
   LayoutDashboard,
   ListChecks,
   Settings,
-  ArrowUpRight,
+  LogOut,
   Search,
   ChevronDown,
   History,
@@ -16,6 +16,16 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { QUEUE_SEGMENT_ROUTES, queuePathForSegment } from "@/lib/segments";
 import type { AppCapability } from "@/lib/auth-capabilities";
 
@@ -62,6 +72,18 @@ export function AppShell() {
   const location = useLocation();
   const queueOpen = location.pathname.startsWith("/queue");
   const [queueExpanded, setQueueExpanded] = useState(true);
+  const [signOutOpen, setSignOutOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const confirmSignOut = async () => {
+    setSigningOut(true);
+    try {
+      await logout();
+    } finally {
+      setSigningOut(false);
+      setSignOutOpen(false);
+    }
+  };
 
   return (
     <div className="h-dvh overflow-hidden flex bg-background">
@@ -179,8 +201,14 @@ export function AppShell() {
             <p className="text-sm font-medium truncate">{user?.name}</p>
             <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => void logout()} title="Sign out">
-            <ArrowUpRight className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="icon"
+            title="Sign out"
+            aria-label="Sign out"
+            onClick={() => setSignOutOpen(true)}
+          >
+            <LogOut className="h-4 w-4" />
           </Button>
         </div>
       </aside>
@@ -188,6 +216,23 @@ export function AppShell() {
       <main className="flex-1 min-w-0 min-h-0 overflow-y-auto">
         <Outlet />
       </main>
+
+      <AlertDialog open={signOutOpen} onOpenChange={(open) => !signingOut && setSignOutOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sign out?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You will need to sign in again to use the CGE workspace.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={signingOut}>Cancel</AlertDialogCancel>
+            <AlertDialogAction disabled={signingOut} onClick={() => void confirmSignOut()}>
+              {signingOut ? "Signing out…" : "Sign out"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

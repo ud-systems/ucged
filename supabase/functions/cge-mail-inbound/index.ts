@@ -2,9 +2,12 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
 
 /**
- * Resend Inbound webhook → attach reply to cge_email_threads via cge+{threadId}@inbound.domain
- * Also matches by customer From email when plus-tag missing.
+ * Resend Inbound webhook (email.received) → cge_email_threads.
+ * Webhook payload is metadata only; body/headers come from Receiving API.
+ * Match via Reply-To plus-address cge+{threadId}@inbound.domain
+ * or fallback by customer From / In-Reply-To.
  */
+
 function extractThreadId(addresses: string[]): string | null {
   for (const addr of addresses) {
     const m = String(addr || "").match(/cge\+([0-9a-f-]{36})@/i);
@@ -26,6 +29,36 @@ function asAddressList(v: unknown): string[] {
   return [];
 }
 
+function bareEmail(raw: unknown): string {
+  return String(raw || "")
+    .toLowerCase()
+    .replace(/^.*<([^>]+)>.*$/, "$1")
+    .trim();
+}
+
+type ReceivedEmail = {
+  id?: string;
+  to?: unknown;
+  from?: unknown;
+  subject?: string;
+  html?: string | null;
+  text?: string | null;
+  message_id?: string | null;
+  received_for?: unknown;
+  headers?: Record<string, string> | null;
+};
+
+async function fetchReceivedEmail(emailId: string, resendKey: string): Promise<ReceivedEmail | null> {
+  const res = await fetch(`https://api.resend.com/emails/receiving/${emailId}`, {
+    headers: { Authorization: `Bearer ${resendKey}` },
+  });
+  if (!res.ok) {
+    console.error("Resend receiving fetch failed", res.status, await res.text().catch(() => ""));
+    return null;
+  }
+  return (await res.json()) as ReceivedEmail;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -35,41 +68,61 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
+    // Optional custom header auth (not sent by Resend by default).
+    // Prefer leaving cge_mail_inbound_secret empty for Resend webhooks.
     const { data: secretRow } = await supabase
       .from("app_settings")
       .select("value")
       .eq("key", "cge_mail_inbound_secret")
       .maybeSingle();
     const secret = (secretRow?.value || Deno.env.get("CGE_MAIL_INBOUND_SECRET") || "").trim();
-    if (secret) {
-      const provided = (req.headers.get("x-cge-webhook-secret") || "").trim();
-      if (provided !== secret) {
-        return new Response(JSON.stringify({ error: "Invalid webhook secret" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+    const provided = (req.headers.get("x-cge-webhook-secret") || "").trim();
+    if (secret && provided && provided !== secret) {
+      return new Response(JSON.stringify({ error: "Invalid webhook secret" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
+    // If a secret is configured but Resend didn't send the header, allow through
+    // (Resend uses Svix signing; custom headers aren't available on their webhooks).
 
     const event = await req.json();
     const data = event?.data || event;
+    const emailId = String(data?.email_id || data?.id || "").trim();
+
+    const resendKey = (Deno.env.get("RESEND_API_KEY") || "").trim();
+    let received: ReceivedEmail | null = null;
+    if (emailId && resendKey) {
+      received = await fetchReceivedEmail(emailId, resendKey);
+    }
+
     const toList = [
       ...asAddressList(data?.to),
+      ...asAddressList(data?.received_for),
       ...asAddressList(data?.envelope?.to),
       ...asAddressList(event?.to),
+      ...asAddressList(received?.to),
+      ...asAddressList(received?.received_for),
     ];
-    const fromList = asAddressList(data?.from).concat(asAddressList(event?.from));
-    const fromEmail = (fromList[0] || data?.from || "").toString().toLowerCase().replace(/^.*<([^>]+)>.*$/, "$1").trim();
-    const subject = String(data?.subject || event?.subject || "(no subject)");
-    const bodyText = String(data?.text || data?.body_text || event?.text || "");
-    const bodyHtml = String(data?.html || data?.body_html || event?.html || "");
-    const messageId = String(data?.message_id || data?.headers?.["message-id"] || "") || null;
-    const inReplyTo = String(data?.in_reply_to || data?.headers?.["in-reply-to"] || "") || null;
-    const resendId = data?.email_id || data?.id || null;
+
+    const fromList = asAddressList(data?.from)
+      .concat(asAddressList(event?.from))
+      .concat(asAddressList(received?.from));
+    const fromEmail = bareEmail(fromList[0] || data?.from || received?.from);
+
+    const subject = String(data?.subject || received?.subject || event?.subject || "(no subject)");
+    const bodyText = String(received?.text || data?.text || data?.body_text || event?.text || "");
+    const bodyHtml = String(received?.html || data?.html || data?.body_html || event?.html || "");
+    const headers = received?.headers || data?.headers || {};
+    const messageId =
+      String(received?.message_id || data?.message_id || headers["message-id"] || headers["Message-ID"] || "") ||
+      null;
+    const inReplyTo =
+      String(headers["in-reply-to"] || headers["In-Reply-To"] || data?.in_reply_to || "") || null;
+    const resendId = emailId || null;
 
     let threadId = extractThreadId(toList);
 
-    // Fallback: match by In-Reply-To / customer email
     if (!threadId && inReplyTo) {
       const { data: prev } = await supabase
         .from("cge_email_messages")
@@ -132,13 +185,13 @@ Deno.serve(async (req) => {
     }
 
     if (!threadId || !customerId) {
+      console.warn("inbound unmatched", { fromEmail, toList, emailId, subject });
       return new Response(JSON.stringify({ ok: false, error: "Could not match thread/customer", fromEmail, toList }), {
         status: 202,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Dedupe by resend_id or message_id
     if (resendId) {
       const { data: existing } = await supabase
         .from("cge_email_messages")
@@ -157,7 +210,7 @@ Deno.serve(async (req) => {
       customer_id: customerId,
       direction: "inbound",
       from_email: fromEmail || "unknown",
-      to_email: toList[0] || "",
+      to_email: bareEmail(toList[0]) || "",
       subject,
       body_text: bodyText || null,
       body_html: bodyHtml || null,
@@ -182,6 +235,7 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
+    console.error("cge-mail-inbound error", msg);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

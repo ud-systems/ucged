@@ -1,11 +1,21 @@
 import { useMemo, useState } from "react";
 import { useCgeSalespersonLinks, useCgeUsersOptions, useSalespeopleOptions } from "@/hooks/use-cge-data";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function SettingsAssignments() {
   const { data: links = [], isLoading } = useCgeSalespersonLinks();
@@ -13,6 +23,12 @@ export function SettingsAssignments() {
   const { data: salespeople = [] } = useSalespeopleOptions();
   const [cgeId, setCgeId] = useState("");
   const [spId, setSpId] = useState("");
+  const [removeTarget, setRemoveTarget] = useState<{
+    id: string;
+    cge_user_id: string;
+    salesperson_user_id: string;
+  } | null>(null);
+  const [removing, setRemoving] = useState(false);
   const qc = useQueryClient();
 
   const cgeOptions = useMemo(
@@ -92,18 +108,7 @@ export function SettingsAssignments() {
                 <td className="p-3">{labelFor(link.cge_user_id, cges)}</td>
                 <td className="p-3">{labelFor(link.salesperson_user_id, salespeople)}</td>
                 <td className="p-3 text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={async () => {
-                      const { error } = await supabase.from("cge_salesperson_assignments").delete().eq("id", link.id);
-                      if (error) toast.error(error.message);
-                      else {
-                        toast.success("Removed");
-                        void qc.invalidateQueries({ queryKey: ["cge-sp-links"] });
-                      }
-                    }}
-                  >
+                  <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(link)}>
                     Remove
                   </Button>
                 </td>
@@ -119,6 +124,43 @@ export function SettingsAssignments() {
           </tbody>
         </table>
       </div>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={(open) => !open && !removing && setRemoveTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this assignment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeTarget
+                ? `${labelFor(removeTarget.cge_user_id, cges)} will no longer see customers owned by ${labelFor(removeTarget.salesperson_user_id, salespeople)}.`
+                : "This CGE will no longer see that salesperson's customers."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={removing}
+              className={buttonVariants({ variant: "destructive" })}
+              onClick={async () => {
+                if (!removeTarget) return;
+                setRemoving(true);
+                try {
+                  const { error } = await supabase.from("cge_salesperson_assignments").delete().eq("id", removeTarget.id);
+                  if (error) toast.error(error.message);
+                  else {
+                    toast.success("Removed");
+                    void qc.invalidateQueries({ queryKey: ["cge-sp-links"] });
+                    setRemoveTarget(null);
+                  }
+                } finally {
+                  setRemoving(false);
+                }
+              }}
+            >
+              {removing ? "Removing…" : "Remove"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

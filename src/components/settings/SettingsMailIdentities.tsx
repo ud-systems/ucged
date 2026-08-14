@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   useAppSettings,
@@ -17,7 +17,7 @@ import { Switch } from "@/components/ui/switch";
 
 export function SettingsMailIdentities() {
   const { data: identities = [], isLoading } = useMailIdentities();
-  const { data: cges = [] } = useCgeUsersOptions();
+  const { data: cges = [], isFetching: cgesLoading } = useCgeUsersOptions();
   const { data: settings } = useAppSettings();
   const saveSettings = useSaveAppSettings();
   const save = useSaveMailIdentity();
@@ -34,12 +34,27 @@ export function SettingsMailIdentities() {
 
   const labelFor = (uid: string) => cges.find((c) => c.user_id === uid)?.label || uid.slice(0, 8);
 
+  const fillFromCge = (uid: string) => {
+    setUserId(uid);
+    const cge = cges.find((c) => c.user_id === uid);
+    const existing = identityByUser.get(uid);
+    setEmail((existing?.email || cge?.email || "").trim());
+    setDisplayName((existing?.display_name || cge?.full_name || cge?.label || "").trim());
+  };
+
+  // If CGE list enriches with emails after selection, fill empty email field.
+  useEffect(() => {
+    if (!userId || email.trim()) return;
+    const cge = cges.find((c) => c.user_id === userId);
+    if (cge?.email) setEmail(cge.email);
+  }, [userId, email, cges]);
+
   return (
     <div className="space-y-6">
       <div>
         <SettingsSectionTitle
           title="CGE send-as emails"
-          tip="Each CGE sends follow-up email as their company address via Resend. Soft/campaign mail still uses the shared brand From. Set inbound domain for Reply-To routing (e.g. inbound.yourdomain.com)."
+          tip="Each CGE sends follow-up email as their company address via Resend. Soft/campaign mail still uses the shared brand From. Selecting a CGE autofills their login email and name (edit before save if needed). Set inbound domain for Reply-To routing (e.g. inbound.yourdomain.com)."
         />
       </div>
 
@@ -71,16 +86,17 @@ export function SettingsMailIdentities() {
           </Button>
         </div>
         <p className="text-xs text-muted-foreground">
-          Point MX for this subdomain to Resend Inbound, then webhook to{" "}
-          <code className="text-[11px]">/functions/v1/cge-mail-inbound</code> with header{" "}
-          <code className="text-[11px]">x-cge-webhook-secret</code>.
+          Point MX for this subdomain to Resend Inbound, then Resend webhook{" "}
+          <code className="text-[11px]">email.received</code> →{" "}
+          <code className="text-[11px]">/functions/v1/cge-mail-inbound</code>. Leave inbound secret empty for
+          Resend (they cannot send custom headers).
         </p>
       </div>
 
       <div className="rounded-xl border p-4 grid md:grid-cols-3 gap-3 items-end">
         <div className="space-y-1.5">
           <Label>CGE user</Label>
-          <Select value={userId} onValueChange={setUserId}>
+          <Select value={userId} onValueChange={fillFromCge}>
             <SelectTrigger>
               <SelectValue placeholder="Select CGE" />
             </SelectTrigger>
@@ -88,6 +104,7 @@ export function SettingsMailIdentities() {
               {cges.map((c) => (
                 <SelectItem key={c.user_id} value={c.user_id}>
                   {c.label}
+                  {c.email ? ` · ${c.email}` : cgesLoading ? " · …" : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -95,11 +112,20 @@ export function SettingsMailIdentities() {
         </div>
         <div className="space-y-1.5">
           <Label>Send-as email</Label>
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="aiden@company.com" />
+          <Input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Loads from CGE login email"
+          />
         </div>
         <div className="space-y-1.5">
           <Label>Display name</Label>
-          <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Aiden Hudson" />
+          <Input
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="Loads from CGE name"
+          />
         </div>
         <Button
           className="rounded-xl md:col-span-3 w-fit"
@@ -110,11 +136,12 @@ export function SettingsMailIdentities() {
               await save.mutateAsync({
                 id: existing?.id,
                 user_id: userId,
-                email,
-                display_name: displayName || labelFor(userId),
+                email: email.trim().toLowerCase(),
+                display_name: displayName.trim() || labelFor(userId),
                 active: true,
               });
               toast.success("Mail identity saved");
+              setUserId("");
               setEmail("");
               setDisplayName("");
             } catch (e: unknown) {

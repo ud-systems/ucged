@@ -1021,19 +1021,83 @@ export function useSalespeopleOptions() {
   });
 }
 
+export type CgeUserOption = {
+  user_id: string;
+  label: string;
+  email: string | null;
+  full_name: string | null;
+};
+
 export function useCgeUsersOptions() {
   return useQuery({
-    queryKey: ["cge-users-options", isPreview],
-    queryFn: async () => {
+    // v2: include login email for mail-identity autofill (busts older {user_id,label}-only cache)
+    queryKey: ["cge-users-options", "v2", isPreview],
+    queryFn: async (): Promise<CgeUserOption[]> => {
       if (isPreview) {
-        return [{ user_id: "preview-cge-user", label: "Aiden Hudson" }];
+        return [
+          {
+            user_id: "preview-cge-user",
+            label: "Aiden Hudson",
+            email: "aiden@uniquedistribution.com",
+            full_name: "Aiden Hudson",
+          },
+        ];
       }
-      const { data, error } = await supabase.from("user_roles").select("user_id, salesperson_name, role").eq("role", "cge");
-      if (error) throw error;
-      return (data ?? []).map((r) => ({
-        user_id: r.user_id as string,
-        label: (r.salesperson_name as string) || r.user_id,
-      }));
+
+      const { data: roleRows, error: roleErr } = await supabase
+        .from("user_roles")
+        .select("user_id, salesperson_name, role")
+        .eq("role", "cge");
+      if (roleErr) throw roleErr;
+
+      const base: CgeUserOption[] = (roleRows ?? []).map((r) => {
+        const full_name = ((r.salesperson_name as string) || "").trim() || null;
+        return {
+          user_id: r.user_id as string,
+          label: full_name || (r.user_id as string),
+          email: null,
+          full_name,
+        };
+      });
+
+      // Enrich with auth login emails via admin-users (same source as User management).
+      try {
+        const { getAccessTokenForEdgeFunctions } = await import("@/lib/supabase-edge-auth");
+        const token = await getAccessTokenForEdgeFunctions();
+        if (!token) return base;
+
+        const { data } = await supabase.functions.invoke("admin-users", {
+          body: { action: "list" },
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const users = (data as { users?: Array<{
+          id: string;
+          email: string | null;
+          full_name: string;
+          salesperson_name: string | null;
+          role: string | null;
+        }> } | null)?.users;
+
+        if (!Array.isArray(users)) return base;
+
+        const byId = new Map(users.map((u) => [u.id, u]));
+        return base.map((row) => {
+          const u = byId.get(row.user_id);
+          if (!u) return row;
+          const full_name =
+            (u.full_name || u.salesperson_name || row.full_name || "").trim() || null;
+          const email = (u.email || "").trim().toLowerCase() || null;
+          return {
+            user_id: row.user_id,
+            label: full_name || email || row.user_id,
+            email,
+            full_name,
+          };
+        });
+      } catch {
+        return base;
+      }
     },
   });
 }
@@ -1366,14 +1430,16 @@ export function useGrokDraft() {
           warnings: ["Preview mode"],
         };
       }
-      const { getAccessTokenForEdgeFunctions, parseEdgeFunctionErrorPayload } = await import("@/lib/supabase-edge-auth");
+      const { getAccessTokenForEdgeFunctions, readEdgeFunctionError, friendlyAiDraftError } = await import("@/lib/supabase-edge-auth");
       const token = await getAccessTokenForEdgeFunctions();
       const { data, error } = await supabase.functions.invoke("cge-grok-draft", {
         body: payload,
         headers: token ? { Authorization: `Bearer ${token}` } : undefined,
       });
-      const msg = parseEdgeFunctionErrorPayload(data, error);
-      if (msg) throw new Error(msg);
+      if (error) {
+        const msg = await readEdgeFunctionError(data, error);
+        throw new Error(friendlyAiDraftError(msg));
+      }
       return data as { subject?: string | null; body: string; bullets?: string[]; warnings?: string[] };
     },
   });

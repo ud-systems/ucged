@@ -6,6 +6,16 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function CampaignDetailPage() {
   const { campaignId } = useParams<{ campaignId: string }>();
@@ -15,6 +25,7 @@ export default function CampaignDetailPage() {
   const campaign = data?.campaign;
   const recipients = data?.recipients ?? [];
   const [subjectOverride, setSubjectOverride] = useState<string | null>(null);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
 
   if (isLoading) return <div className="p-6 lg:p-8 text-muted-foreground">Loading…</div>;
   if (!campaign) {
@@ -73,17 +84,7 @@ export default function CampaignDetailPage() {
           <Button
             className="rounded-xl"
             disabled={send.isPending || ["done", "sending"].includes(campaign.status)}
-            onClick={async () => {
-              try {
-                if (subject !== (campaign.subject_override || "")) {
-                  await save.mutateAsync({ id: campaign.id, name: campaign.name, subject_override: subject || null });
-                }
-                await send.mutateAsync(campaign.id);
-                toast.success("Send batch started");
-              } catch (e: unknown) {
-                toast.error(e instanceof Error ? e.message : "Send failed");
-              }
-            }}
+            onClick={() => setSendConfirmOpen(true)}
           >
             {send.isPending ? "Sending…" : "Send now"}
           </Button>
@@ -148,6 +149,37 @@ export default function CampaignDetailPage() {
           </tbody>
         </table>
       </div>
+
+      <AlertDialog open={sendConfirmOpen} onOpenChange={(open) => !send.isPending && setSendConfirmOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Send this campaign now?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Emails will go out to the campaign audience via Resend. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={send.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={send.isPending}
+              onClick={async () => {
+                try {
+                  if (subject !== (campaign.subject_override || "")) {
+                    await save.mutateAsync({ id: campaign.id, name: campaign.name, subject_override: subject || null });
+                  }
+                  await send.mutateAsync(campaign.id);
+                  toast.success("Send batch started");
+                  setSendConfirmOpen(false);
+                } catch (e: unknown) {
+                  toast.error(e instanceof Error ? e.message : "Send failed");
+                }
+              }}
+            >
+              {send.isPending ? "Sending…" : "Send now"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

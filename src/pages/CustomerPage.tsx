@@ -400,12 +400,6 @@ export default function CustomerPage() {
                 No active send-as email on your account. Ask an admin to assign one under Settings → Mail identities.
               </div>
             )}
-            {mailIdentity && (
-              <p className="text-xs text-muted-foreground">
-                Sending as <span className="font-medium text-foreground">{mailIdentity.display_name || mailIdentity.email}</span>{" "}
-                &lt;{mailIdentity.email}&gt;. Replies route into CGE when inbound domain is configured.
-              </p>
-            )}
 
             <div className="grid lg:grid-cols-[240px_1fr] gap-4 items-start">
               <div className="rounded-2xl border bg-card overflow-hidden">

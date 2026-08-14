@@ -50,24 +50,80 @@ export async function getAccessTokenForEdgeFunctions(): Promise<string | null> {
   return edgeTokenRefreshInFlight;
 }
 
+function messageFromPayload(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const d = payload as Record<string, unknown>;
+  if (typeof d.error === "string" && d.error.trim()) return d.error.trim();
+  if (typeof d.errors === "string" && d.errors.trim()) return d.errors.trim();
+  if (typeof d.message === "string" && d.message.trim()) return d.message.trim();
+  return null;
+}
+
+function isGenericEdgeStatusMessage(message: string): boolean {
+  return /Edge Function returned a non-2xx status code/i.test(message);
+}
+
 export function parseEdgeFunctionErrorPayload(data: unknown, error: unknown): string | null {
-  if (data && typeof data === "object") {
-    const d = data as Record<string, unknown>;
-    if (typeof d.error === "string" && d.error) return d.error;
-    if (typeof d.errors === "string" && d.errors) return d.errors;
-  }
+  const fromData = messageFromPayload(data);
+  if (fromData) return fromData;
   if (error && typeof error === "object") {
     const e = error as { message?: string; context?: { body?: string } };
-    if (e.context?.body) {
+    if (typeof e.context?.body === "string" && e.context.body) {
       try {
-        const b = JSON.parse(e.context.body) as Record<string, unknown>;
-        if (typeof b.error === "string" && b.error) return b.error;
-        if (typeof b.errors === "string" && b.errors) return b.errors;
+        const fromBody = messageFromPayload(JSON.parse(e.context.body));
+        if (fromBody) return fromBody;
       } catch {
         /* ignore */
       }
     }
-    if (typeof e.message === "string") return e.message;
+    if (typeof e.message === "string" && e.message && !isGenericEdgeStatusMessage(e.message)) {
+      return e.message;
+    }
   }
   return null;
+}
+
+/** Reads FunctionsHttpError.context (a Response) so toasts can show the function body. */
+export async function readEdgeFunctionError(data: unknown, error: unknown): Promise<string | null> {
+  const sync = parseEdgeFunctionErrorPayload(data, error);
+  if (sync) return sync;
+  if (!error || typeof error !== "object") return null;
+  const ctx = (error as { context?: unknown }).context;
+  if (ctx && typeof ctx === "object" && typeof (ctx as Response).json === "function") {
+    try {
+      const payload = await (ctx as Response).clone().json();
+      const fromJson = messageFromPayload(payload);
+      if (fromJson) return fromJson;
+    } catch {
+      try {
+        const text = await (ctx as Response).clone().text();
+        const fromText = messageFromPayload(JSON.parse(text));
+        if (fromText) return fromText;
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  return null;
+}
+
+export function friendlyAiDraftError(raw: string | null | undefined): string {
+  const text = (raw || "").trim();
+  const lower = text.toLowerCase();
+  if (/credits or licenses|doesn't have any credits|no api credits|prepaid credits/.test(lower)) {
+    return "Grok has no API credits yet. Add prepaid credits at console.x.ai, then try again.";
+  }
+  if (/invalid api key|incorrect api key|unauthorized/.test(lower)) {
+    return "The Grok API key is invalid. Ask an admin to update it.";
+  }
+  if (/model not found/.test(lower)) {
+    return "The Grok model is unavailable. Ask an admin to update the AI model.";
+  }
+  if (/rate limit/.test(lower)) {
+    return "Too many AI drafts just now. Wait a few minutes and try again.";
+  }
+  if (!text || isGenericEdgeStatusMessage(text)) {
+    return "Couldn't generate an AI draft. Check Grok credits and try again.";
+  }
+  return text;
 }

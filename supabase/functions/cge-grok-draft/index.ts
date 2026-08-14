@@ -18,6 +18,37 @@ function fingerprint(parts: unknown): string {
   return `fp_${Math.abs(h).toString(16)}`;
 }
 
+function friendlyXaiError(status: number, errText: string): string {
+  let parsed: { error?: string; code?: string } = {};
+  try {
+    parsed = JSON.parse(errText) as { error?: string; code?: string };
+  } catch {
+    /* raw text */
+  }
+  const combined = `${parsed.code || ""} ${parsed.error || errText}`.toLowerCase();
+  if (status === 403 || /credits or licenses|doesn't have any credits|prepaid/.test(combined)) {
+    return "Grok has no API credits yet. Add prepaid credits at console.x.ai, then try again.";
+  }
+  if (status === 401 || /invalid api key|incorrect api key|unauthorized/.test(combined)) {
+    return "The Grok API key is invalid. Ask an admin to update it.";
+  }
+  if (/model not found/.test(combined)) {
+    return "The Grok model is unavailable. Ask an admin to update the AI model.";
+  }
+  if (status === 429 || /rate limit/.test(combined)) {
+    return "Too many AI requests right now. Wait a few minutes and try again.";
+  }
+  if (typeof parsed.error === "string" && parsed.error.trim()) return parsed.error.trim();
+  return "Couldn't generate an AI draft. Try again in a moment.";
+}
+
+function xaiFailureResponse(status: number, errText: string) {
+  return new Response(JSON.stringify({ error: friendlyXaiError(status, errText) }), {
+    status: 502,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -71,7 +102,7 @@ Deno.serve(async (req) => {
 
     if (isTemplateMode) {
       const xaiKey = (Deno.env.get("XAI_API_KEY") || "").trim();
-      const model = (Deno.env.get("XAI_MODEL") || "grok-2-latest").trim();
+      const model = (Deno.env.get("XAI_MODEL") || "grok-4.6").trim();
       const subjectIn = body.subject || "";
       const htmlIn = body.html_body || "";
       if (!xaiKey) {
@@ -105,11 +136,7 @@ Deno.serve(async (req) => {
         }),
       });
       if (!aiRes.ok) {
-        const errText = await aiRes.text();
-        return new Response(JSON.stringify({ error: `xAI error: ${errText.slice(0, 400)}` }), {
-          status: 502,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+        return xaiFailureResponse(aiRes.status, await aiRes.text());
       }
       const aiJson = await aiRes.json();
       const content = aiJson?.choices?.[0]?.message?.content || "";
@@ -228,7 +255,7 @@ Deno.serve(async (req) => {
     };
 
     const xaiKey = (Deno.env.get("XAI_API_KEY") || "").trim();
-    const model = (Deno.env.get("XAI_MODEL") || "grok-2-latest").trim();
+    const model = (Deno.env.get("XAI_MODEL") || "grok-4.6").trim();
 
     if (!xaiKey) {
       // Deterministic fallback draft so UI works before key is set
@@ -287,11 +314,7 @@ Rules:
     });
 
     if (!aiRes.ok) {
-      const errText = await aiRes.text();
-      return new Response(JSON.stringify({ error: `xAI error: ${errText.slice(0, 400)}` }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return xaiFailureResponse(aiRes.status, await aiRes.text());
     }
 
     const aiJson = await aiRes.json();

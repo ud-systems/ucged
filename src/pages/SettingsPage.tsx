@@ -13,6 +13,16 @@ import { SettingsSyncHealth } from "@/components/settings/SettingsSyncHealth";
 import { SettingsMailIdentities } from "@/components/settings/SettingsMailIdentities";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const KEYS = [
   "shopify_store_domain",
@@ -41,6 +51,7 @@ export default function SettingsPage() {
   const { data: templates = [] } = useEmailTemplates();
   const [form, setForm] = useState<Record<string, string>>({});
   const [softBusy, setSoftBusy] = useState(false);
+  const [softConfirmOpen, setSoftConfirmOpen] = useState(false);
   const [ownershipBusy, setOwnershipBusy] = useState(false);
 
   useEffect(() => {
@@ -199,18 +210,7 @@ export default function SettingsPage() {
                 variant="outline"
                 className="rounded-xl"
                 disabled={softBusy}
-                onClick={async () => {
-                  setSoftBusy(true);
-                  try {
-                    const { data, error } = await supabase.functions.invoke("cge-soft-email", { body: {} });
-                    if (error) throw error;
-                    toast.success(`Soft email run: sent ${data?.sent ?? 0} / ${data?.attempted ?? 0}`);
-                  } catch (e: unknown) {
-                    toast.error(e instanceof Error ? e.message : "Soft email run failed");
-                  } finally {
-                    setSoftBusy(false);
-                  }
-                }}
+                onClick={() => setSoftConfirmOpen(true)}
               >
                 Run soft emails now
               </Button>
@@ -234,6 +234,38 @@ export default function SettingsPage() {
           </section>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={softConfirmOpen} onOpenChange={(open) => !softBusy && setSoftConfirmOpen(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Run soft emails now?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Day-60 and day-75 prevention emails will send immediately to eligible customers via Resend.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={softBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={softBusy}
+              onClick={async () => {
+                setSoftBusy(true);
+                try {
+                  const { data, error } = await supabase.functions.invoke("cge-soft-email", { body: {} });
+                  if (error) throw error;
+                  toast.success(`Soft email run: sent ${data?.sent ?? 0} / ${data?.attempted ?? 0}`);
+                  setSoftConfirmOpen(false);
+                } catch (e: unknown) {
+                  toast.error(e instanceof Error ? e.message : "Soft email run failed");
+                } finally {
+                  setSoftBusy(false);
+                }
+              }}
+            >
+              {softBusy ? "Running…" : "Run now"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
