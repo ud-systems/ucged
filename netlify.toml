@@ -5,8 +5,16 @@
 [build.environment]
   NODE_VERSION = "22"
 
+# Same-origin Supabase proxy — browser uses /api/db, not *.supabase.co.
+[[redirects]]
+  from = "/api/db/*"
+  to = "https://gfgqjuhkbbnrybkbthku.supabase.co/:splat"
+  status = 200
+  force = true
+
 # SPA fallback: serve index.html for client routes so refresh/deep links work.
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
+

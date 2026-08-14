@@ -1,8 +1,6 @@
 /**
- * Shopify + DataPulse credentials copied from uddash `app_settings`.
- * Sourced into `.credentials.local.json` (gitignored). Used for Settings preview
- * and for seeding the CGE Supabase project when ready.
+ * Shopify + DataPulse credentials for Settings preview only.
+ * Production reads `app_settings` from Supabase — do not import
+ * `.credentials.local.json` here (gitignored; Netlify builds would fail).
  */
-import localCredentials from "../../.credentials.local.json";
-
-export const UDDASH_APP_SETTINGS = localCredentials as Record<string, string>;
+export const UDDASH_APP_SETTINGS: Record<string, string> = {};
