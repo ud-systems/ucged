@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
+import { CustomerCallSheet } from "@/components/CustomerCallSheet";
 import {
   QUEUE_SEGMENT_ROUTES,
   SEGMENT_LABELS,
@@ -20,6 +21,7 @@ import {
   type CgeSegment,
 } from "@/lib/segments";
 import { formatDaysQuiet } from "@/lib/days-quiet";
+import { whatsappHref } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { prefersReducedMotion } from "@/lib/motion";
 import { toast } from "sonner";
@@ -57,21 +59,44 @@ function Kpi({ label, value }: { label: string; value: number | string }) {
   );
 }
 
-function QueueActions({ tel, wa, customerId }: { tel: string; wa: string; customerId: string }) {
+function QueueActions({
+  row,
+  onCall,
+}: {
+  row: QueueRow;
+  onCall: (row: QueueRow) => void;
+}) {
   return (
     <div className="flex justify-end gap-1">
-      <Button size="icon" variant="ghost" className="size-11 md:size-8" asChild disabled={!tel} title="Call">
-        <a href={tel ? `tel:${tel}` : undefined}>
-          <Phone />
-        </a>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="size-11 md:size-8"
+        title="Call"
+        onClick={() => onCall(row)}
+      >
+        <Phone />
       </Button>
-      <Button size="icon" variant="ghost" className="size-11 md:size-8" asChild disabled={!wa} title="WhatsApp">
-        <a href={wa ? `https://wa.me/${wa}` : undefined} target="_blank" rel="noreferrer">
-          <WhatsAppIcon />
-        </a>
+      <Button
+        type="button"
+        size="icon"
+        variant="ghost"
+        className="size-11 md:size-8"
+        title="WhatsApp"
+        onClick={() => {
+          const href = whatsappHref(row.customer_phone);
+          if (!href) {
+            toast.error("No phone number on file");
+            return;
+          }
+          window.open(href, "_blank", "noopener,noreferrer");
+        }}
+      >
+        <WhatsAppIcon />
       </Button>
       <Button size="icon" variant="ghost" className="size-11 md:size-8" asChild title="Open customer">
-        <Link to={`/customers/${customerId}`}>
+        <Link to={`/customers/${row.customer_id}`}>
           <ExternalLink />
         </Link>
       </Button>
@@ -88,6 +113,7 @@ export default function QueuePage() {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [callRow, setCallRow] = useState<QueueRow | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const bulkRef = useRef<HTMLDivElement>(null);
 
@@ -228,8 +254,6 @@ export default function QueuePage() {
         <div className="flex flex-col gap-3 md:hidden">
           {rows.map((row) => {
             const isSelected = selected.has(row.id);
-            const tel = row.customer_phone?.replace(/\s+/g, "") || "";
-            const wa = tel.replace(/^\+/, "");
             return (
               <RecordCard
                 key={row.id}
@@ -263,7 +287,7 @@ export default function QueuePage() {
                     </div>
                   </div>
                   <div onClick={(e) => e.stopPropagation()}>
-                    <QueueActions tel={tel} wa={wa} customerId={row.customer_id} />
+                    <QueueActions row={row} onCall={setCallRow} />
                   </div>
                 </div>
               </RecordCard>
@@ -302,8 +326,6 @@ export default function QueuePage() {
             <TableBody>
               {rows.map((row) => {
                 const isSelected = selected.has(row.id);
-                const tel = row.customer_phone?.replace(/\s+/g, "") || "";
-                const wa = tel.replace(/^\+/, "");
                 return (
                   <TableRow
                     key={row.id}
@@ -354,7 +376,7 @@ export default function QueuePage() {
                       </span>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <QueueActions tel={tel} wa={wa} customerId={row.customer_id} />
+                      <QueueActions row={row} onCall={setCallRow} />
                     </TableCell>
                   </TableRow>
                 );
@@ -400,6 +422,18 @@ export default function QueuePage() {
           </Button>
         </div>
       )}
+
+      <CustomerCallSheet
+        open={callRow != null}
+        onOpenChange={(open) => {
+          if (!open) setCallRow(null);
+        }}
+        customerId={callRow?.customer_id ?? ""}
+        taskId={callRow?.id}
+        customerName={callRow?.customer_name}
+        phone={callRow?.customer_phone || ""}
+        scheduledCallAt={callRow?.scheduled_call_at}
+      />
     </PageFrame>
   );
 }

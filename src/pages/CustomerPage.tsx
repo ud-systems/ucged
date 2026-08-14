@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "@/components/layout";
 import { daysQuietFromOrders, formatDaysQuiet } from "@/lib/days-quiet";
+import { smsHref, whatsappHref } from "@/lib/phone";
 import { formatMoney } from "@/lib/format-money";
 import { SEGMENT_LABELS, segmentBadgeClass, type CgeSegment } from "@/lib/segments";
 import { toast } from "sonner";
@@ -145,8 +146,6 @@ export default function CustomerPage() {
     }
   }, [selectedThreadId, threads]);
 
-  const tel = useMemo(() => customer?.phone?.replace(/\s+/g, "") || "", [customer?.phone]);
-  const wa = tel.replace(/^\+/, "");
   const owner = ownershipLabel(customer?.sp_assigned, customer?.referred_by);
   const displayCurrency = useMemo(() => {
     const spend = (customer as { spend_currency?: string | null } | null | undefined)?.spend_currency;
@@ -233,24 +232,34 @@ export default function CustomerPage() {
             <Mail data-icon="inline-end" />
           </Button>
           <Button
-            className="justify-between rounded-xl border-0 bg-[#25D366] text-white hover:bg-[#1EBE5A] disabled:opacity-50"
-            asChild
-            disabled={!wa}
+            type="button"
+            className="justify-between rounded-xl border-0 bg-[#25D366] text-white hover:bg-[#1EBE5A]"
+            onClick={() => {
+              const href = whatsappHref(customer.phone);
+              if (!href) {
+                toast.error("No phone number on file");
+                return;
+              }
+              window.open(href, "_blank", "noopener,noreferrer");
+            }}
           >
-            <a href={wa ? `https://wa.me/${wa}` : undefined} target="_blank" rel="noreferrer">
-              WhatsApp
-              <WhatsAppIcon data-icon="inline-end" />
-            </a>
+            WhatsApp
+            <WhatsAppIcon data-icon="inline-end" />
           </Button>
           <Button
-            className="justify-between rounded-xl border-0 bg-neutral-500 text-white hover:bg-neutral-600 disabled:opacity-50"
-            asChild
-            disabled={!tel}
+            type="button"
+            className="justify-between rounded-xl border-0 bg-neutral-500 text-white hover:bg-neutral-600"
+            onClick={() => {
+              const href = smsHref(customer.phone);
+              if (!href) {
+                toast.error("No phone number on file");
+                return;
+              }
+              window.location.href = href;
+            }}
           >
-            <a href={tel ? `sms:${tel}` : undefined}>
-              SMS
-              <Smartphone data-icon="inline-end" />
-            </a>
+            SMS
+            <Smartphone data-icon="inline-end" />
           </Button>
         </div>
       </div>
@@ -756,18 +765,38 @@ export default function CustomerPage() {
                     <Mail className="h-4 w-4 mr-2" /> Use Email tab
                   </Button>
                 )}
-                {channel === "whatsapp" && wa && (
-                  <Button className="rounded-xl" asChild disabled={!draftBody}>
-                    <a href={`https://wa.me/${wa}?text=${encodeURIComponent(draftBody)}`} target="_blank" rel="noreferrer">
-                      <WhatsAppIcon className="h-4 w-4 mr-2" /> Open WhatsApp
-                    </a>
+                {channel === "whatsapp" && (
+                  <Button
+                    type="button"
+                    className="rounded-xl"
+                    disabled={!draftBody}
+                    onClick={() => {
+                      const href = whatsappHref(customer.phone, draftBody);
+                      if (!href) {
+                        toast.error("No phone number on file");
+                        return;
+                      }
+                      window.open(href, "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <WhatsAppIcon className="h-4 w-4 mr-2" /> Open WhatsApp
                   </Button>
                 )}
-                {channel === "sms" && tel && (
-                  <Button className="rounded-xl" asChild disabled={!draftBody}>
-                    <a href={`sms:${tel}?body=${encodeURIComponent(draftBody)}`}>
-                      <Smartphone className="h-4 w-4 mr-2" /> Open SMS
-                    </a>
+                {channel === "sms" && (
+                  <Button
+                    type="button"
+                    className="rounded-xl"
+                    disabled={!draftBody}
+                    onClick={() => {
+                      const href = smsHref(customer.phone, draftBody);
+                      if (!href) {
+                        toast.error("No phone number on file");
+                        return;
+                      }
+                      window.location.href = href;
+                    }}
+                  >
+                    <Smartphone className="h-4 w-4 mr-2" /> Open SMS
                   </Button>
                 )}
               </div>

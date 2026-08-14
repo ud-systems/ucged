@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/contexts/AuthContext";
 import { useClearScheduledCall, useLogOutreach, useScheduleCall } from "@/hooks/use-cge-data";
 import { toast } from "sonner";
+import { telHref } from "@/lib/phone";
 
 function toDatetimeLocalValue(iso: string | null | undefined) {
   if (!iso) return "";
@@ -50,7 +51,7 @@ export function CustomerCallSheet({
     }
   }, [open, scheduledCallAt]);
 
-  const tel = phone.replace(/\s+/g, "");
+  const callHref = telHref(phone);
   const canSchedule = Boolean(taskId);
   const existingLabel = (() => {
     if (!scheduledCallAt) return null;
@@ -65,7 +66,7 @@ export function CustomerCallSheet({
           <SheetTitle className="font-heading text-xl">Call</SheetTitle>
           <SheetDescription>
             {customerName ? `Reach ${customerName}` : "Call or schedule a callback"}
-            {tel ? ` · ${tel}` : ""}
+            {phone.trim() ? ` · ${phone.trim()}` : ""}
           </SheetDescription>
         </SheetHeader>
 
@@ -74,9 +75,9 @@ export function CustomerCallSheet({
             <Button
               type="button"
               className="w-full justify-between rounded-xl border-0 bg-neutral-800 text-white hover:bg-neutral-900"
-              disabled={!tel || !user || dialing}
+              disabled={!callHref || !user || dialing}
               onClick={async () => {
-                if (!user || !tel) return;
+                if (!user || !callHref) return;
                 setDialing(true);
                 try {
                   await logOutreach.mutateAsync({
@@ -91,14 +92,14 @@ export function CustomerCallSheet({
                   // still allow dialing
                 } finally {
                   setDialing(false);
-                  window.location.href = `tel:${tel}`;
+                  window.location.href = callHref;
                 }
               }}
             >
               Call now
               <Phone className="h-4 w-4" />
             </Button>
-            {!tel && <p className="text-xs text-muted-foreground">No phone number on file.</p>}
+            {!callHref && <p className="text-xs text-muted-foreground">No phone number on file.</p>}
           </div>
 
           <div className="border-t pt-5 flex flex-col gap-3">

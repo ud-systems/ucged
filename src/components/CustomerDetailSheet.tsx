@@ -19,6 +19,7 @@ import {
   useOutreachEvents,
 } from "@/hooks/use-cge-data";
 import { formatMoney } from "@/lib/format-money";
+import { smsHref, whatsappHref } from "@/lib/phone";
 import { SEGMENT_LABELS, segmentBadgeClass, type CgeSegment } from "@/lib/segments";
 import { toast } from "sonner";
 
@@ -60,8 +61,6 @@ export function CustomerFollowUpPanel({
     setScheduledCallAt(row.scheduled_call_at ?? null);
   }, [row.id, row.scheduled_call_at]);
 
-  const tel = row.customer_phone?.replace(/\s+/g, "") || "";
-  const wa = tel.replace(/^\+/, "");
   const rfm = rfmLabel(row);
   const sp = spLabel(row);
 
@@ -113,24 +112,34 @@ export function CustomerFollowUpPanel({
           <Mail className="h-4 w-4" />
         </Button>
         <Button
-          className="justify-between rounded-xl border-0 bg-[#25D366] text-white hover:bg-[#1EBE5A] disabled:opacity-50"
-          asChild
-          disabled={!wa}
+          type="button"
+          className="justify-between rounded-xl border-0 bg-[#25D366] text-white hover:bg-[#1EBE5A]"
+          onClick={() => {
+            const href = whatsappHref(row.customer_phone);
+            if (!href) {
+              toast.error("No phone number on file");
+              return;
+            }
+            window.open(href, "_blank", "noopener,noreferrer");
+          }}
         >
-          <a href={wa ? `https://wa.me/${wa}` : undefined} target="_blank" rel="noreferrer">
-            WhatsApp
-            <WhatsAppIcon className="h-4 w-4" />
-          </a>
+          WhatsApp
+          <WhatsAppIcon className="h-4 w-4" />
         </Button>
         <Button
-          className="justify-between rounded-xl border-0 bg-neutral-500 text-white hover:bg-neutral-600 disabled:opacity-50"
-          asChild
-          disabled={!tel}
+          type="button"
+          className="justify-between rounded-xl border-0 bg-neutral-500 text-white hover:bg-neutral-600"
+          onClick={() => {
+            const href = smsHref(row.customer_phone);
+            if (!href) {
+              toast.error("No phone number on file");
+              return;
+            }
+            window.location.href = href;
+          }}
         >
-          <a href={tel ? `sms:${tel}` : undefined}>
-            SMS
-            <Smartphone className="h-4 w-4" />
-          </a>
+          SMS
+          <Smartphone className="h-4 w-4" />
         </Button>
       </div>
 
