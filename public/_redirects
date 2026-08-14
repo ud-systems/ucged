@@ -1,1 +1,5 @@
+# _redirects is processed before netlify.toml. The /api/db proxy MUST
+# come first — otherwise POST /api/db/auth/v1/token matches /* and 404s.
+/api/db/*  https://gfgqjuhkbbnrybkbthku.supabase.co/:splat  200!
+
 /*    /index.html   200

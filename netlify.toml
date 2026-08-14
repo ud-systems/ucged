@@ -6,6 +6,7 @@
   NODE_VERSION = "22"
 
 # Same-origin Supabase proxy — browser uses /api/db, not *.supabase.co.
+# Also declared first in public/_redirects (that file is processed first).
 [[redirects]]
   from = "/api/db/*"
   to = "https://gfgqjuhkbbnrybkbthku.supabase.co/:splat"
