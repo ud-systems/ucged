@@ -1,0 +1,38 @@
+# DataPulseFlow — Supabase Edge Functions config (template)
+# DataPulseFlow.com — https://datapulseflow.com
+# Replace gfgqjuhkbbnrybkbthku in Dashboard link only; project_id here is optional for local CLI.
+
+project_id = "gfgqjuhkbbnrybkbthku"
+
+# Deploy with: supabase functions deploy <name> --no-verify-jwt --project-ref <ref>
+# Auth is enforced inside shopify-test and shopify-sync via requireAdmin().
+# shopify-webhook is called by Shopify (no user JWT).
+[functions.shopify-test]
+verify_jwt = false
+
+[functions.shopify-sync]
+verify_jwt = false
+
+[functions.shopify-webhook]
+verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = false
+
+[functions.cge-soft-email]
+verify_jwt = false
+
+[functions.cge-grok-draft]
+verify_jwt = false
+
+[functions.cge-campaign-send]
+verify_jwt = false
+
+[functions.cge-resend-webhook]
+verify_jwt = false
+
+[functions.cge-mail-send]
+verify_jwt = false
+
+[functions.cge-mail-inbound]
+verify_jwt = false
