@@ -1771,3 +1771,5 @@ CREATE POLICY cge_customers_select ON public.shopify_customers
     )
   );
 
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'supervisor';
+

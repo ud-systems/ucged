@@ -228,7 +228,7 @@ export type Database = {
       has_role: { Args: { _user_id: string; _role: string }; Returns: boolean };
     };
     Enums: {
-      app_role: "admin" | "salesperson" | "cge";
+      app_role: "admin" | "salesperson" | "cge" | "supervisor";
     };
     CompositeTypes: Record<string, never>;
   };

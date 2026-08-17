@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { getAccessTokenForEdgeFunctions, parseEdgeFunctionErrorPayload } from "@/lib/supabase-edge-auth";
+import { getAccessTokenForEdgeFunctions, readEdgeFunctionError } from "@/lib/supabase-edge-auth";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,7 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Loader2, Pencil, Plus, Trash2, UserMinus } from "lucide-react";
+import { Eye, EyeOff, Loader2, Pencil, Plus, Search, Trash2, UserMinus } from "lucide-react";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
 import { useOffboardCge } from "@/hooks/use-cge-data";
 import {
@@ -45,9 +45,20 @@ export type ListedAppUser = {
   full_name: string;
   created_at: string;
   role: "admin" | "salesperson" | "cge" | "supervisor" | null;
+  roles?: Array<"admin" | "salesperson" | "cge" | "supervisor">;
   salesperson_name: string | null;
+  has_salesperson?: boolean;
   has_role_row: boolean;
 };
+
+function roleLabel(u: ListedAppUser) {
+  if (!u.role) return "—";
+  if (u.role === "supervisor" && (u.has_salesperson || u.roles?.includes("salesperson"))) {
+    return "Supervisor + Salesperson";
+  }
+  if (u.role === "cge") return "CGE";
+  return u.role.charAt(0).toUpperCase() + u.role.slice(1);
+}
 
 const MIN_PASSWORD_LEN = 8;
 const PAGE_SIZE = 8;
@@ -59,8 +70,9 @@ async function invokeAdminUsers<T>(body: Record<string, unknown>): Promise<T> {
     body,
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  const parsed = parseEdgeFunctionErrorPayload(data, error);
+  const parsed = await readEdgeFunctionError(data, error);
   if (parsed) throw new Error(parsed);
+  if (error) throw new Error(error.message || "Request failed");
   return data as T;
 }
 
@@ -96,11 +108,25 @@ export function SettingsUserManagement() {
   const [offboarding, setOffboarding] = useState(false);
   const offboard = useOffboardCge();
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const cgeSuccessors = useMemo(
     () => users.filter((u) => u.role === "cge" && u.id !== offboardTarget?.id),
     [users, offboardTarget],
   );
+
+  const filteredUsers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return users;
+    return users.filter((u) => {
+      const hay = [u.full_name, u.email, u.role, u.salesperson_name, ...(u.roles ?? []), roleLabel(u)]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return hay.includes(q);
+    });
+  }, [users, search]);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -117,11 +143,11 @@ export function SettingsUserManagement() {
     }
   }, []);
 
-  const pageCount = Math.max(1, Math.ceil(users.length / PAGE_SIZE));
+  const pageCount = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
   const pageUsers = useMemo(() => {
     const start = (page - 1) * PAGE_SIZE;
-    return users.slice(start, start + PAGE_SIZE);
-  }, [users, page]);
+    return filteredUsers.slice(start, start + PAGE_SIZE);
+  }, [filteredUsers, page]);
 
   useEffect(() => {
     if (page > pageCount) setPage(pageCount);
@@ -135,6 +161,7 @@ export function SettingsUserManagement() {
     setFormMode("create");
     setEditing(null);
     setForm(emptyForm());
+    setShowPassword(false);
     setFormOpen(true);
   }
 
@@ -148,6 +175,7 @@ export function SettingsUserManagement() {
       role: u.role || "cge",
       salesperson_name: u.salesperson_name || "",
     });
+    setShowPassword(false);
     setFormOpen(true);
   }
 
@@ -224,11 +252,24 @@ export function SettingsUserManagement() {
       <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center justify-between gap-2">
         <SettingsSectionTitle
           title="Users"
-          tip="Create admins, supervisors, CGEs, and salespersons. Salesperson display names must match Shopify ownership labels (SP_Assigned / referred_by)."
+          tip="Create admins, supervisors, CGEs, and salespersons. For a Shopify salesperson who should log in as supervisor (e.g. Rob Lister), set Role to Supervisor and keep their Shopify salesperson name — CGE keeps both."
         />
         <Button className="rounded-xl w-full sm:w-auto" onClick={openCreate}>
           <Plus data-icon="inline-start" /> Add user
         </Button>
+      </div>
+
+      <div className="relative w-full sm:max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Input
+          className="pl-9 rounded-xl bg-card"
+          placeholder="Search name, email, role…"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
       </div>
 
       <div className="flex flex-col gap-3 md:gap-0">
@@ -237,7 +278,7 @@ export function SettingsUserManagement() {
             <RecordCard key={u.id}>
               <p className="font-medium truncate">{u.full_name || "—"}</p>
               <p className="text-xs text-muted-foreground truncate">{u.email || "—"}</p>
-              <p className="text-xs capitalize mt-1">{u.role || "—"} · {u.salesperson_name || "no label"}</p>
+              <p className="text-xs capitalize mt-1">{roleLabel(u)} · {u.salesperson_name || "no label"}</p>
               <div className="flex justify-end gap-1 mt-2">
                 <Button variant="ghost" size="icon" className="size-11" onClick={() => openEdit(u)} title="Edit">
                   <Pencil />
@@ -269,8 +310,10 @@ export function SettingsUserManagement() {
               </div>
             </RecordCard>
           ))}
-          {!loading && users.length === 0 && (
-            <p className="p-6 text-center text-sm text-muted-foreground">No users yet.</p>
+          {!loading && filteredUsers.length === 0 && (
+            <p className="p-6 text-center text-sm text-muted-foreground">
+              {users.length === 0 ? "No users yet." : "No users match your search."}
+            </p>
           )}
         </div>
         <DataTableShell loading={loading} className="hidden md:block">
@@ -290,7 +333,7 @@ export function SettingsUserManagement() {
                   <TableRow key={u.id}>
                     <TableCell className="font-medium max-w-[10rem] truncate">{u.full_name || "—"}</TableCell>
                     <TableCell className="text-muted-foreground max-w-[14rem] truncate">{u.email || "—"}</TableCell>
-                    <TableCell className="capitalize">{u.role || "—"}</TableCell>
+                    <TableCell>{roleLabel(u)}</TableCell>
                     <TableCell className="hidden lg:table-cell truncate max-w-[10rem]">{u.salesperson_name || "—"}</TableCell>
                     <TableCell className="text-right">
                       <div className="inline-flex gap-1">
@@ -323,10 +366,10 @@ export function SettingsUserManagement() {
                     </TableCell>
                   </TableRow>
                 ))}
-              {!loading && users.length === 0 && (
+              {!loading && filteredUsers.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5} className="p-6 text-center text-muted-foreground">
-                    No users yet.
+                    {users.length === 0 ? "No users yet." : "No users match your search."}
                   </TableCell>
                 </TableRow>
               )}
@@ -335,11 +378,17 @@ export function SettingsUserManagement() {
         </DataTableShell>
       </div>
 
-      {!loading && users.length > 0 && (
+      {!loading && filteredUsers.length > 0 && (
         <PagePagination page={page} pageCount={pageCount} onPageChange={setPage} />
       )}
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
+      <Dialog
+        open={formOpen}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) setShowPassword(false);
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading">{formMode === "create" ? "Add user" : "Edit user"}</DialogTitle>
@@ -355,11 +404,23 @@ export function SettingsUserManagement() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>{formMode === "create" ? "Password" : "New password (optional)"}</Label>
-              <Input
-                type="password"
-                value={form.password}
-                onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
-              />
+              <div className="relative">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  className="pr-10"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:text-foreground"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Role</Label>
@@ -378,15 +439,23 @@ export function SettingsUserManagement() {
             {(form.role === "salesperson" || form.role === "cge" || form.role === "supervisor") && (
               <div className="flex flex-col gap-1.5">
                 <Label>
-                  {form.role === "salesperson"
-                    ? "Shopify salesperson name"
-                    : "Display name (optional)"}
+                  {form.role === "cge" ? "Display name (optional)" : "Shopify salesperson name"}
                 </Label>
                 <Input
                   value={form.salesperson_name}
                   onChange={(e) => setForm((f) => ({ ...f, salesperson_name: e.target.value }))}
-                  placeholder={form.role === "salesperson" ? "e.g. Neil Gill" : "Optional"}
+                  placeholder="e.g. Rob Lister"
                 />
+                {form.role === "supervisor" && (
+                  <p className="text-xs text-muted-foreground">
+                    Leave this matching Shopify SP_Assigned / referred_by so their customer book still maps. Login stays Supervisor.
+                  </p>
+                )}
+                {form.role === "salesperson" && (
+                  <p className="text-xs text-muted-foreground">
+                    Must match Shopify SP_Assigned / referred_by.
+                  </p>
+                )}
               </div>
             )}
           </div>

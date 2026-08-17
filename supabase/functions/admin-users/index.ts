@@ -20,6 +20,13 @@ function jsonOk(data: unknown) {
   });
 }
 
+function roleWriteError(message: string) {
+  if (/invalid input value for enum/i.test(message) && /supervisor/i.test(message)) {
+    return "The supervisor role is not enabled in the database yet. Run ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'supervisor'; in the SQL Editor, then try again.";
+  }
+  return message;
+}
+
 function pickRoleRow(rows: { role: AppRole; salesperson_name: string | null }[]) {
   if (!rows.length) return null;
   const admin = rows.find((r) => r.role === "admin");
@@ -29,6 +36,49 @@ function pickRoleRow(rows: { role: AppRole; salesperson_name: string | null }[])
   const cge = rows.find((r) => r.role === "cge");
   if (cge) return cge;
   return rows[0];
+}
+
+function shopifyLabelFromRows(rows: { role: AppRole; salesperson_name: string | null }[]) {
+  const sp = rows.find((r) => r.role === "salesperson");
+  const named = rows.find((r) => (r.salesperson_name || "").trim());
+  return (sp?.salesperson_name || named?.salesperson_name || null);
+}
+
+async function upsertRole(
+  supabase: SupabaseClient,
+  user_id: string,
+  role: AppRole,
+  salesperson_name: string | null,
+) {
+  const { data: existing } = await supabase
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", user_id)
+    .eq("role", role)
+    .maybeSingle();
+  if (existing) {
+    const { error } = await supabase
+      .from("user_roles")
+      .update({ salesperson_name })
+      .eq("user_id", user_id)
+      .eq("role", role);
+    if (error) throw error;
+    return;
+  }
+  const { error } = await supabase.from("user_roles").insert({ user_id, role, salesperson_name });
+  if (error) throw error;
+}
+
+async function deleteRolesNotIn(supabase: SupabaseClient, user_id: string, keep: AppRole[]) {
+  const { data: rows, error: readErr } = await supabase.from("user_roles").select("role").eq("user_id", user_id);
+  if (readErr) throw readErr;
+  const keepSet = new Set(keep);
+  for (const row of rows || []) {
+    const role = row.role as AppRole;
+    if (keepSet.has(role)) continue;
+    const { error } = await supabase.from("user_roles").delete().eq("user_id", user_id).eq("role", role);
+    if (error) throw error;
+  }
 }
 
 async function handleList(supabase: SupabaseClient) {
@@ -61,13 +111,16 @@ async function handleList(supabase: SupabaseClient) {
     const roleRow = pickRoleRow(rows);
     const meta = u.user_metadata || {};
     const full_name = String(meta.full_name || meta.name || "");
+    const has_salesperson = rows.some((r) => r.role === "salesperson");
     return {
       id: u.id,
       email: u.email ?? null,
       full_name,
       created_at: u.created_at,
       role: roleRow?.role ?? null,
-      salesperson_name: roleRow?.salesperson_name ?? null,
+      roles: rows.map((r) => r.role),
+      salesperson_name: shopifyLabelFromRows(rows),
+      has_salesperson,
       has_role_row: !!roleRow,
     };
   });
@@ -106,14 +159,27 @@ async function handleCreate(
   const user = authData.user;
   if (!user) return jsonErr("User creation failed", 500);
 
+  const displayName = salesperson_name || full_name || null;
   const { error: roleErr } = await supabase.from("user_roles").insert({
     user_id: user.id,
     role,
-    salesperson_name: role === "salesperson" ? salesperson_name : (role === "cge" || role === "supervisor" ? (salesperson_name || full_name || null) : null),
+    salesperson_name: role === "admin" ? null : displayName,
   });
   if (roleErr) {
     await supabase.auth.admin.deleteUser(user.id);
-    return jsonErr(roleErr.message, 500);
+    return jsonErr(roleWriteError(roleErr.message), 500);
+  }
+
+  if (role === "supervisor" && salesperson_name) {
+    const { error: spErr } = await supabase.from("user_roles").insert({
+      user_id: user.id,
+      role: "salesperson",
+      salesperson_name,
+    });
+    if (spErr) {
+      await supabase.auth.admin.deleteUser(user.id);
+      return jsonErr(roleWriteError(spErr.message), 500);
+    }
   }
 
   return jsonOk({ success: true, user: { id: user.id, email: user.email } });
@@ -171,8 +237,13 @@ async function handleUpdate(
   if (role !== undefined) {
     if (role !== "admin" && role !== "salesperson" && role !== "cge" && role !== "supervisor") return jsonErr("Invalid role", 400);
 
-    const { data: currentRows } = await supabase.from("user_roles").select("role").eq("user_id", user_id);
+    const { data: currentRows } = await supabase
+      .from("user_roles")
+      .select("role, salesperson_name")
+      .eq("user_id", user_id);
     const wasAdmin = currentRows?.some((r) => r.role === "admin");
+    const existingShopifyLabel =
+      currentRows?.find((r) => r.role === "salesperson")?.salesperson_name?.trim() || "";
 
     if (wasAdmin && role !== "admin" && callerId === user_id) {
       const { count } = await supabase
@@ -182,24 +253,31 @@ async function handleUpdate(
       if ((count ?? 0) <= 1) return jsonErr("Cannot demote the only admin", 400);
     }
 
-    let spName: string | null = role === "admin" ? null : (salesperson_name_in ?? "");
-    if ((role === "salesperson" || role === "cge" || role === "supervisor") && !spName) {
-      const meta = existingUser.user_metadata as Record<string, string | undefined>;
-      spName =
-        meta?.full_name ||
-        meta?.name ||
-        existingUser.email?.split("@")[0] ||
-        (role === "cge" ? "CGE" : role === "supervisor" ? "Supervisor" : "Salesperson");
-    }
-    if ((role === "cge" || role === "supervisor") && !spName) spName = null;
+    const meta = existingUser.user_metadata as Record<string, string | undefined>;
+    const fallbackName =
+      meta?.full_name || meta?.name || existingUser.email?.split("@")[0] || null;
 
-    await supabase.from("user_roles").delete().eq("user_id", user_id);
-    const { error: insErr } = await supabase.from("user_roles").insert({
-      user_id,
-      role,
-      salesperson_name: role === "salesperson" ? spName : role === "cge" || role === "supervisor" ? spName : null,
-    });
-    if (insErr) return jsonErr(insErr.message, 500);
+    let shopifyLabel =
+      salesperson_name_in !== undefined ? salesperson_name_in : existingShopifyLabel;
+    if (role === "salesperson" && !shopifyLabel) {
+      shopifyLabel = fallbackName || "Salesperson";
+    }
+
+    const loginDisplay =
+      role === "admin" ? null : (role === "salesperson" ? shopifyLabel : fallbackName);
+
+    try {
+      await upsertRole(supabase, user_id, role, loginDisplay);
+      const keep: AppRole[] = [role];
+      if (role === "supervisor" && shopifyLabel) {
+        await upsertRole(supabase, user_id, "salesperson", shopifyLabel);
+        keep.push("salesperson");
+      }
+      await deleteRolesNotIn(supabase, user_id, keep);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Failed to update role";
+      return jsonErr(roleWriteError(msg), 500);
+    }
   } else if (spProvided && salesperson_name_in !== undefined) {
     const { data: spRow } = await supabase
       .from("user_roles")
