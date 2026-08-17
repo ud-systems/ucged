@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { Link } from "react-router-dom";
 import type { PerformanceActivity } from "@/hooks/use-cge-data";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { useStaggerIn } from "@/hooks/use-stagger-in";
 
 export function ActivityFeed({ items, showCge }: { items: PerformanceActivity[]; showCge: boolean }) {
@@ -23,15 +23,9 @@ export function ActivityFeed({ items, showCge }: { items: PerformanceActivity[];
                 {new Date(item.created_at).toLocaleString()}
               </span>
             </div>
-            <div className="flex flex-wrap gap-1.5 mt-1">
-              <Badge variant="outline" className="capitalize text-[10px]">
-                {item.channel}
-              </Badge>
-              {item.outcome && (
-                <Badge variant="secondary" className="capitalize text-[10px]">
-                  {item.outcome.replace("_", " ")}
-                </Badge>
-              )}
+            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+              <StatusBadge value={item.channel} className="text-[10px]" />
+              {item.outcome ? <StatusBadge value={item.outcome} className="text-[10px]" /> : null}
               {showCge && item.cge_name && (
                 <span className="text-[11px] text-muted-foreground truncate">{item.cge_name}</span>
               )}

@@ -3,7 +3,7 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSyncLogs, useTriggerShopifySync } from "@/hooks/use-cge-data";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { toast } from "sonner";
 
 const PAGE_SIZE = 10;
@@ -83,7 +83,7 @@ export default function SyncHealthPage() {
                 <tr key={log.id} className="border-t">
                   <td className="p-3 font-medium">{log.sync_type}</td>
                   <td className="p-3">
-                    <Badge variant={log.status === "success" ? "default" : "outline"}>{log.status}</Badge>
+                    <StatusBadge value={log.status} />
                   </td>
                   <td className="p-3 text-right tabular-nums">{log.records_synced ?? 0}</td>
                   <td className="p-3 text-muted-foreground">

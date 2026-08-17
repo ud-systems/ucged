@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/layout";
+import { StatusBadge } from "@/components/StatusBadge";
 import { useStaggerIn } from "@/hooks/use-stagger-in";
 
 export default function OrdersBrowsePage() {
@@ -84,15 +85,13 @@ export default function OrdersBrowsePage() {
                   {formatMoney(row.current_total ?? row.total ?? 0, row.currency_code)}
                 </p>
               </div>
-              <div className="flex flex-wrap gap-2 mt-2 text-xs text-muted-foreground capitalize">
-                <span>{row.financial_status || "—"}</span>
-                <span>·</span>
-                <span>{row.fulfillment_status || "—"}</span>
+              <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                <StatusBadge value={row.financial_status} />
+                <StatusBadge value={row.fulfillment_status} />
                 {row.shopify_created_at ? (
-                  <>
-                    <span>·</span>
-                    <span>{new Date(row.shopify_created_at).toLocaleDateString()}</span>
-                  </>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(row.shopify_created_at).toLocaleDateString()}
+                  </span>
                 ) : null}
               </div>
             </RecordCard>
@@ -140,9 +139,11 @@ export default function OrdersBrowsePage() {
                   <TableCell className="hidden lg:table-cell truncate max-w-[10rem]">
                     {row.ownership_label || "—"}
                   </TableCell>
-                  <TableCell className="capitalize text-muted-foreground">{row.financial_status || "—"}</TableCell>
-                  <TableCell className="hidden lg:table-cell capitalize text-muted-foreground">
-                    {row.fulfillment_status || "—"}
+                  <TableCell>
+                    <StatusBadge value={row.financial_status} />
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    <StatusBadge value={row.fulfillment_status} />
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground">
                     {row.shopify_created_at ? new Date(row.shopify_created_at).toLocaleDateString() : "—"}

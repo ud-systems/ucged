@@ -5,6 +5,7 @@ import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -229,11 +230,15 @@ export function CustomerFollowUpPanel({
           {events.length === 0 && <p className="text-sm text-muted-foreground">No outreach logged yet.</p>}
           {events.map((ev: { id: string; channel: string; created_at: string; outcome?: string; notes?: string }) => (
             <div key={ev.id} className="rounded-xl border p-3 text-sm">
-              <div className="flex justify-between gap-2">
-                <span className="font-medium capitalize">{ev.channel}</span>
-                <span className="text-xs text-muted-foreground">{new Date(ev.created_at).toLocaleString()}</span>
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <StatusBadge value={ev.channel} />
+                  <StatusBadge value={ev.outcome || "logged"} />
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">
+                  {new Date(ev.created_at).toLocaleString()}
+                </span>
               </div>
-              <p className="text-muted-foreground capitalize">{ev.outcome || "logged"}</p>
               {ev.notes && <p className="mt-1">{ev.notes}</p>}
             </div>
           ))}
@@ -249,6 +254,7 @@ export function CustomerFollowUpPanel({
               id: string;
               order_number?: string | null;
               financial_status?: string | null;
+              fulfillment_status?: string | null;
               total?: number | string | null;
               current_total?: number | string | null;
               currency_code?: string | null;
@@ -263,7 +269,10 @@ export function CustomerFollowUpPanel({
                       <span className="ml-2 text-[10px] uppercase text-muted-foreground">related</span>
                     ) : null}
                   </p>
-                  <p className="text-xs text-muted-foreground">{o.financial_status}</p>
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    <StatusBadge value={o.financial_status} />
+                    <StatusBadge value={o.fulfillment_status} />
+                  </div>
                 </div>
                 <div className="text-right">
                   <p className="font-medium tabular-nums">

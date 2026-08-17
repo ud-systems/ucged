@@ -18,6 +18,7 @@ import {
 } from "@/hooks/use-cge-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { UnreadCountPill } from "@/components/UnreadCountPill";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -205,6 +206,7 @@ export default function CustomerPage() {
                 {SEGMENT_LABELS[openTask.segment as CgeSegment] || openTask.segment}
               </Badge>
             )}
+            {openTask?.status ? <StatusBadge value={openTask.status} /> : null}
             {customer.rfm_group && <Badge variant="secondary">{customer.rfm_group}</Badge>}
             <Badge variant="outline">Salesperson: {owner}</Badge>
             {customer.referred_by && customer.referred_by !== owner && (
@@ -352,9 +354,10 @@ export default function CustomerPage() {
                               <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">related</span>
                             ) : null}
                           </p>
-                          <p className="text-xs text-muted-foreground capitalize mt-1">
-                            {o.financial_status || "—"} · {o.fulfillment_status || "—"}
-                          </p>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            <StatusBadge value={o.financial_status} />
+                            <StatusBadge value={o.fulfillment_status} />
+                          </div>
                         </div>
                         <p className="font-medium tabular-nums shrink-0">
                           {formatMoney(o.current_total ?? o.total ?? 0, o.currency_code || displayCurrency)}
@@ -399,9 +402,11 @@ export default function CustomerPage() {
                               </span>
                             ) : null}
                           </TableCell>
-                          <TableCell className="capitalize text-muted-foreground">{o.financial_status || "—"}</TableCell>
-                          <TableCell className="hidden lg:table-cell capitalize text-muted-foreground">
-                            {o.fulfillment_status || "—"}
+                          <TableCell>
+                            <StatusBadge value={o.financial_status} />
+                          </TableCell>
+                          <TableCell className="hidden lg:table-cell">
+                            <StatusBadge value={o.fulfillment_status} />
                           </TableCell>
                           <TableCell className="hidden lg:table-cell text-muted-foreground">
                             {o.shopify_created_at ? new Date(o.shopify_created_at).toLocaleDateString() : "—"}
@@ -429,11 +434,15 @@ export default function CustomerPage() {
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {events.map((ev: { id: string; channel: string; outcome?: string; notes?: string; created_at: string }) => (
               <div key={ev.id} className="rounded-xl border bg-card p-4 text-sm">
-                <div className="flex justify-between gap-2">
-                  <span className="font-medium capitalize">{ev.channel}</span>
-                  <span className="text-xs text-muted-foreground">{new Date(ev.created_at).toLocaleString()}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <StatusBadge value={ev.channel} />
+                    <StatusBadge value={ev.outcome || "logged"} />
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    {new Date(ev.created_at).toLocaleString()}
+                  </span>
                 </div>
-                <p className="text-muted-foreground capitalize mt-1">{ev.outcome || "logged"}</p>
                 {ev.notes && <p className="mt-2">{ev.notes}</p>}
               </div>
             ))}

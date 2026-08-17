@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
 import { Switch } from "@/components/ui/switch";
@@ -188,7 +188,7 @@ export function SettingsMailIdentities() {
                     }
                   }}
                 />
-                <Badge variant="outline">{i.active ? "active" : "off"}</Badge>
+                <StatusBadge value={i.active ? "active" : "off"} />
               </div>
             </RecordCard>
           ))}
@@ -233,7 +233,7 @@ export function SettingsMailIdentities() {
                           }
                         }}
                       />
-                      <Badge variant="outline">{i.active ? "active" : "off"}</Badge>
+                      <StatusBadge value={i.active ? "active" : "off"} />
                     </div>
                   </TableCell>
                 </TableRow>

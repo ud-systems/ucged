@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { useCampaign, useSaveCampaign, useSendCampaign } from "@/hooks/use-cge-data";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useRef, useState } from "react";
@@ -77,9 +78,7 @@ export default function CampaignDetailPage() {
         title={campaign.name}
         description={
           <span className="flex flex-wrap gap-2 mt-1">
-            <Badge variant="outline" className="capitalize">
-              {campaign.status}
-            </Badge>
+            <StatusBadge value={campaign.status} />
             <Badge variant="secondary">{String((campaign.audience as { preset?: string })?.preset || "audience")}</Badge>
           </span>
         }
@@ -152,7 +151,7 @@ export default function CampaignDetailPage() {
           {recipients.map((r) => (
             <RecordCard key={r.id}>
               <p className="font-medium truncate">{r.email}</p>
-              <p className="text-xs capitalize text-muted-foreground mt-1">{r.status}</p>
+              <StatusBadge value={r.status} className="mt-1" />
               {r.error_message ? <p className="text-xs text-destructive mt-1 line-clamp-2">{r.error_message}</p> : null}
             </RecordCard>
           ))}
@@ -175,7 +174,9 @@ export default function CampaignDetailPage() {
               {recipients.map((r) => (
                 <TableRow key={r.id} data-stagger-item>
                   <TableCell className="max-w-[16rem] truncate">{r.email}</TableCell>
-                  <TableCell className="capitalize">{r.status}</TableCell>
+                  <TableCell>
+                    <StatusBadge value={r.status} />
+                  </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground text-xs max-w-[16rem] truncate">
                     {r.error_message || "—"}
                   </TableCell>

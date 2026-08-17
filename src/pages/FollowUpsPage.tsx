@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCgeFollowups } from "@/hooks/use-cge-data";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QUEUE_SEGMENT_ROUTES, SEGMENT_LABELS, segmentBadgeClass, type CgeSegment } from "@/lib/segments";
@@ -148,7 +149,7 @@ export default function FollowUpsPage() {
                 <Badge variant="outline" className={segmentBadgeClass(row.segment)}>
                   {SEGMENT_LABELS[row.segment as CgeSegment] || row.segment}
                 </Badge>
-                <span className="text-xs capitalize text-muted-foreground">{row.status.replace("_", " ")}</span>
+                <StatusBadge value={row.status} />
                 <span className="text-xs text-muted-foreground ml-auto tabular-nums">{row.outreach_count ?? 0} events</span>
               </div>
             </RecordCard>
@@ -189,7 +190,9 @@ export default function FollowUpsPage() {
                       {SEGMENT_LABELS[row.segment as CgeSegment] || row.segment}
                     </Badge>
                   </TableCell>
-                  <TableCell className="capitalize">{row.status.replace("_", " ")}</TableCell>
+                  <TableCell>
+                    <StatusBadge value={row.status} />
+                  </TableCell>
                   <TableCell className="hidden lg:table-cell truncate max-w-[10rem]">{row.ownership_label || "—"}</TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground">
                     {row.last_outreach_at ? (

@@ -7,6 +7,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { useCgePerformanceDrilldown } from "@/hooks/use-cge-data";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -64,14 +65,8 @@ export function DrilldownSheet({
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-1.5 mt-1.5">
-                    <Badge variant="outline" className="capitalize">
-                      {ev.channel}
-                    </Badge>
-                    {ev.outcome && (
-                      <Badge variant="secondary" className="capitalize">
-                        {ev.outcome.replace("_", " ")}
-                      </Badge>
-                    )}
+                    <StatusBadge value={ev.channel} />
+                    {ev.outcome ? <StatusBadge value={ev.outcome} /> : null}
                   </div>
                   {ev.notes && <p className="mt-2 text-muted-foreground">{ev.notes}</p>}
                 </div>

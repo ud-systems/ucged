@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSyncLogs, useTriggerShopifySync } from "@/hooks/use-cge-data";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { toast } from "sonner";
 import { SettingsSectionTitle } from "@/components/settings/SettingsSectionTitle";
 import {
@@ -71,7 +71,7 @@ export function SettingsSyncHealth() {
               <RecordCard key={log.id}>
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-medium truncate">{log.sync_type}</p>
-                  <Badge variant={log.status === "success" ? "default" : "outline"}>{log.status}</Badge>
+                  <StatusBadge value={log.status} />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {log.records_synced ?? 0} records · {log.started_at ? new Date(log.started_at).toLocaleString() : "—"}
@@ -109,7 +109,7 @@ export function SettingsSyncHealth() {
                     <TableRow key={log.id}>
                       <TableCell className="font-medium">{log.sync_type}</TableCell>
                       <TableCell>
-                        <Badge variant={log.status === "success" ? "default" : "outline"}>{log.status}</Badge>
+                        <StatusBadge value={log.status} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{log.records_synced ?? 0}</TableCell>
                       <TableCell className="hidden lg:table-cell text-muted-foreground">

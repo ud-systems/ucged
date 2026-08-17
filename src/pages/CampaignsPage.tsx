@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCampaigns, useEmailSuppressions, useEmailTemplates, useSaveCampaign } from "@/hooks/use-cge-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { QUEUE_SEGMENT_ROUTES } from "@/lib/segments";
 import {
@@ -145,9 +145,7 @@ export default function CampaignsPage() {
             <RecordCard key={c.id} onClick={() => navigate(`/campaigns/${c.id}`)}>
               <div className="flex items-start justify-between gap-3">
                 <p className="font-medium truncate min-w-0">{c.name}</p>
-                <Badge variant="outline" className="capitalize shrink-0">
-                  {c.status}
-                </Badge>
+                <StatusBadge value={c.status} className="shrink-0" />
               </div>
               <p className="text-xs text-muted-foreground mt-1 truncate">
                 {String((c.audience as { preset?: string })?.preset || "—")}
@@ -180,9 +178,7 @@ export default function CampaignsPage() {
                 <TableRow key={c.id} data-stagger-item>
                   <TableCell className="font-medium max-w-[14rem] truncate">{c.name}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className="capitalize">
-                      {c.status}
-                    </Badge>
+                    <StatusBadge value={c.status} />
                   </TableCell>
                   <TableCell className="hidden lg:table-cell text-muted-foreground text-xs truncate max-w-[12rem]">
                     {String((c.audience as { preset?: string })?.preset || "—")}
