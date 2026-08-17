@@ -97,7 +97,7 @@ export default function App() {
               <Route
                 path="templates"
                 element={
-                  <CapabilityRoute capability="manage_templates">
+                  <CapabilityRoute capability="view_templates">
                     <TemplatesPage />
                   </CapabilityRoute>
                 }

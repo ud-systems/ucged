@@ -37,7 +37,7 @@ const primaryNav: NavItem[] = [
   { to: "/follow-ups", label: "Follow-ups", icon: History, capability: "view_followups" },
   { to: "/inbox", label: "Inbox", icon: Inbox, capability: "view_mail_inbox" },
   { to: "/orders", label: "Orders", icon: ShoppingBag, capability: "view_orders" },
-  { to: "/templates", label: "Templates", icon: Mail, capability: "manage_templates" },
+  { to: "/templates", label: "Templates", icon: Mail, capability: "view_templates" },
   { to: "/campaigns", label: "Campaigns", icon: Megaphone, capability: "manage_campaigns" },
 ];
 

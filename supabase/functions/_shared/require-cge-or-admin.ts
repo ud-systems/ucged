@@ -1,11 +1,19 @@
 import { createClient, type SupabaseClient, type User } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 export type AuthResult =
-  | { ok: true; user: User; adminClient: SupabaseClient; isAdmin: boolean; isCge: boolean }
+  | {
+      ok: true;
+      user: User;
+      adminClient: SupabaseClient;
+      isAdmin: boolean;
+      isCge: boolean;
+      isSupervisor: boolean;
+      isTeamViewer: boolean;
+    }
   | { ok: false; response: Response };
 
 /**
- * Validates Bearer JWT and requires admin or CGE role.
+ * Validates Bearer JWT and requires admin, supervisor, or CGE role.
  */
 export async function requireCgeOrAdmin(
   req: Request,
@@ -59,16 +67,18 @@ export async function requireCgeOrAdmin(
   const roleList = (roles || []).map((r: { role: string }) => r.role);
   const isAdmin = roleList.includes("admin");
   const isCge = roleList.includes("cge");
+  const isSupervisor = roleList.includes("supervisor");
+  const isTeamViewer = isAdmin || isSupervisor;
 
-  if (!isAdmin && !isCge) {
+  if (!isAdmin && !isCge && !isSupervisor) {
     return {
       ok: false,
-      response: new Response(JSON.stringify({ error: "CGE or admin role required" }), {
+      response: new Response(JSON.stringify({ error: "CGE, supervisor, or admin role required" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       }),
     };
   }
 
-  return { ok: true, user, adminClient, isAdmin, isCge };
+  return { ok: true, user, adminClient, isAdmin, isCge, isSupervisor, isTeamViewer };
 }

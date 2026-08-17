@@ -2,11 +2,13 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 /**
  * Call when Edge Function gateway has verify_jwt = false.
- * Validates the caller's Bearer JWT via Auth API and enforces admin role.
+ * Validates the caller's Bearer JWT via Auth API and requires one of `roles`.
  */
-export async function requireAdmin(
+export async function requireAnyRole(
   req: Request,
   corsHeaders: Record<string, string>,
+  roles: string[],
+  forbiddenMessage = "You do not have permission to access this endpoint",
 ): Promise<Response | null> {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -40,19 +42,27 @@ export async function requireAdmin(
   }
 
   const adminClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const { data: roleData } = await adminClient
+  const { data: roleRows } = await adminClient
     .from("user_roles")
     .select("role")
     .eq("user_id", user.id)
-    .eq("role", "admin")
-    .maybeSingle();
+    .in("role", roles)
+    .limit(1);
 
-  if (!roleData) {
-    return new Response(JSON.stringify({ error: "Only admins can access this endpoint" }), {
+  if (!roleRows?.length) {
+    return new Response(JSON.stringify({ error: forbiddenMessage }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   return null;
+}
+
+/** Validates JWT and enforces admin role. */
+export async function requireAdmin(
+  req: Request,
+  corsHeaders: Record<string, string>,
+): Promise<Response | null> {
+  return requireAnyRole(req, corsHeaders, ["admin"], "Only admins can access this endpoint");
 }

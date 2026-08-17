@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    if (!auth.isAdmin) {
+    if (!auth.isTeamViewer) {
       const { data: visible } = await auth.adminClient.rpc("cge_visible_customer_ids", {
         _cge_user_id: auth.user.id,
       });

@@ -27,7 +27,11 @@ import {
 
 export function SettingsMailIdentities() {
   const { data: identities = [], isLoading } = useMailIdentities();
-  const { data: cges = [], isFetching: cgesLoading } = useCgeUsersOptions();
+  const { data: cges = [], isFetching: cgesLoading } = useCgeUsersOptions([
+    "admin",
+    "supervisor",
+    "cge",
+  ]);
   const { data: settings } = useAppSettings();
   const saveSettings = useSaveAppSettings();
   const save = useSaveMailIdentity();
@@ -42,7 +46,11 @@ export function SettingsMailIdentities() {
     return m;
   }, [identities]);
 
-  const labelFor = (uid: string) => cges.find((c) => c.user_id === uid)?.label || uid.slice(0, 8);
+  const labelFor = (uid: string) => {
+    const user = cges.find((c) => c.user_id === uid);
+    if (!user) return uid.slice(0, 8);
+    return user.role ? `${user.label} · ${user.role}` : user.label;
+  };
 
   const fillFromCge = (uid: string) => {
     setUserId(uid);
@@ -63,8 +71,8 @@ export function SettingsMailIdentities() {
     <div className="flex flex-col gap-6">
       <div>
         <SettingsSectionTitle
-          title="CGE send-as emails"
-          tip="Each CGE sends follow-up email as their company address via Resend. Soft/campaign mail still uses the shared brand From. Selecting a CGE autofills their login email and name (edit before save if needed). Set inbound domain for Reply-To routing (e.g. inbound.yourdomain.com)."
+          title="Send-as emails"
+          tip="Assign a company send-as address to a CGE, supervisor, or admin. Soft/campaign mail still uses the shared brand From. Selecting a user autofills their login email and name (edit before save if needed). Set inbound domain for Reply-To routing (e.g. inbound.yourdomain.com)."
         />
       </div>
 
@@ -95,25 +103,20 @@ export function SettingsMailIdentities() {
             Save domain
           </Button>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Point MX for this subdomain to Resend Inbound, then Resend webhook{" "}
-          <code className="text-[11px]">email.received</code> →{" "}
-          <code className="text-[11px]">/functions/v1/cge-mail-inbound</code>. Leave inbound secret empty for
-          Resend (they cannot send custom headers).
-        </p>
       </div>
 
       <div className="rounded-xl border p-4 grid md:grid-cols-3 gap-3 items-end">
         <div className="flex flex-col gap-1.5">
-          <Label>CGE user</Label>
+          <Label>User</Label>
           <Select value={userId} onValueChange={fillFromCge}>
             <SelectTrigger>
-              <SelectValue placeholder="Select CGE" />
+              <SelectValue placeholder="Select CGE, supervisor, or admin" />
             </SelectTrigger>
             <SelectContent>
               {cges.map((c) => (
                 <SelectItem key={c.user_id} value={c.user_id}>
                   {c.label}
+                  {c.role ? ` · ${c.role}` : ""}
                   {c.email ? ` · ${c.email}` : cgesLoading ? " · …" : ""}
                 </SelectItem>
               ))}
@@ -126,7 +129,7 @@ export function SettingsMailIdentities() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="Loads from CGE login email"
+            placeholder="Loads from login email"
           />
         </div>
         <div className="flex flex-col gap-1.5">
@@ -134,7 +137,7 @@ export function SettingsMailIdentities() {
           <Input
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder="Loads from CGE name"
+            placeholder="Loads from user name"
           />
         </div>
         <Button
@@ -194,7 +197,7 @@ export function SettingsMailIdentities() {
           ))}
           {!isLoading && identities.length === 0 && (
             <p className="p-8 text-center text-sm text-muted-foreground">
-              No mail identities yet. Assign a company send-as address to each CGE.
+              No mail identities yet. Assign a company send-as address to a CGE, supervisor, or admin.
             </p>
           )}
         </div>
@@ -202,7 +205,7 @@ export function SettingsMailIdentities() {
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow>
-                <TableHead>CGE</TableHead>
+                <TableHead>User</TableHead>
                 <TableHead>Send-as</TableHead>
                 <TableHead className="hidden lg:table-cell">Display name</TableHead>
                 <TableHead>Active</TableHead>
@@ -241,7 +244,7 @@ export function SettingsMailIdentities() {
               {!isLoading && identities.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={4} className="p-8 text-center text-muted-foreground">
-                    No mail identities yet. Assign a company send-as address to each CGE.
+                    No mail identities yet. Assign a company send-as address to a CGE, supervisor, or admin.
                   </TableCell>
                 </TableRow>
               )}

@@ -1027,12 +1027,22 @@ export type CgeUserOption = {
   label: string;
   email: string | null;
   full_name: string | null;
+  role?: "admin" | "supervisor" | "cge";
 };
 
-export function useCgeUsersOptions() {
+const MAIL_ROLE_RANK: Record<string, number> = { admin: 0, supervisor: 1, cge: 2 };
+
+function pickListedRole(roles: string[]): "admin" | "supervisor" | "cge" {
+  const sorted = [...roles].sort((a, b) => (MAIL_ROLE_RANK[a] ?? 9) - (MAIL_ROLE_RANK[b] ?? 9));
+  const top = sorted[0];
+  return top === "admin" || top === "supervisor" ? top : "cge";
+}
+
+export function useCgeUsersOptions(roles: Array<"admin" | "supervisor" | "cge"> = ["cge"]) {
+  const roleKey = [...roles].sort().join(",");
   return useQuery({
-    // v2: include login email for mail-identity autofill (busts older {user_id,label}-only cache)
-    queryKey: ["cge-users-options", "v2", isPreview],
+    // v3: optional admin/supervisor for mail identities (assignments still pass ["cge"])
+    queryKey: ["cge-users-options", "v3", roleKey, isPreview],
     queryFn: async (): Promise<CgeUserOption[]> => {
       if (isPreview) {
         return [
@@ -1041,6 +1051,7 @@ export function useCgeUsersOptions() {
             label: "Aiden Hudson",
             email: "aiden@uniquedistribution.com",
             full_name: "Aiden Hudson",
+            role: "cge",
           },
         ];
       }
@@ -1048,16 +1059,31 @@ export function useCgeUsersOptions() {
       const { data: roleRows, error: roleErr } = await supabase
         .from("user_roles")
         .select("user_id, salesperson_name, role")
-        .eq("role", "cge");
+        .in("role", roles);
       if (roleErr) throw roleErr;
 
-      const base: CgeUserOption[] = (roleRows ?? []).map((r) => {
-        const full_name = ((r.salesperson_name as string) || "").trim() || null;
+      const merged = new Map<string, { user_id: string; roles: string[]; salesperson_name: string | null }>();
+      for (const r of roleRows ?? []) {
+        const user_id = r.user_id as string;
+        const existing = merged.get(user_id);
+        const salesperson_name = ((r.salesperson_name as string) || "").trim() || null;
+        if (!existing) {
+          merged.set(user_id, { user_id, roles: [r.role as string], salesperson_name });
+        } else {
+          if (!existing.roles.includes(r.role as string)) existing.roles.push(r.role as string);
+          if (!existing.salesperson_name && salesperson_name) existing.salesperson_name = salesperson_name;
+        }
+      }
+
+      const base: CgeUserOption[] = [...merged.values()].map((r) => {
+        const full_name = r.salesperson_name;
+        const role = pickListedRole(r.roles);
         return {
-          user_id: r.user_id as string,
-          label: full_name || (r.user_id as string),
+          user_id: r.user_id,
+          label: full_name || r.user_id,
           email: null,
           full_name,
+          role,
         };
       });
 
@@ -1083,19 +1109,30 @@ export function useCgeUsersOptions() {
         if (!Array.isArray(users)) return base;
 
         const byId = new Map(users.map((u) => [u.id, u]));
-        return base.map((row) => {
-          const u = byId.get(row.user_id);
-          if (!u) return row;
-          const full_name =
-            (u.full_name || u.salesperson_name || row.full_name || "").trim() || null;
-          const email = (u.email || "").trim().toLowerCase() || null;
-          return {
-            user_id: row.user_id,
-            label: full_name || email || row.user_id,
-            email,
-            full_name,
-          };
-        });
+        return base
+          .map((row) => {
+            const u = byId.get(row.user_id);
+            if (!u) return row;
+            const full_name =
+              (u.full_name || u.salesperson_name || row.full_name || "").trim() || null;
+            const email = (u.email || "").trim().toLowerCase() || null;
+            const role =
+              u.role === "admin" || u.role === "supervisor" || u.role === "cge"
+                ? u.role
+                : row.role;
+            return {
+              user_id: row.user_id,
+              label: full_name || email || row.user_id,
+              email,
+              full_name,
+              role,
+            };
+          })
+          .sort((a, b) => {
+            const rank = (MAIL_ROLE_RANK[a.role || "cge"] ?? 9) - (MAIL_ROLE_RANK[b.role || "cge"] ?? 9);
+            if (rank !== 0) return rank;
+            return a.label.localeCompare(b.label);
+          });
       } catch {
         return base;
       }

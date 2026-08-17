@@ -7,6 +7,7 @@ export type AppCapability =
   | "view_orders"
   | "manage_settings"
   | "manage_cge_assignments"
+  | "view_templates"
   | "manage_templates"
   | "manage_campaigns"
   | "use_grok"
@@ -23,6 +24,7 @@ const roleCapabilities: Record<UserRole, AppCapability[]> = {
     "view_orders",
     "manage_settings",
     "manage_cge_assignments",
+    "view_templates",
     "manage_templates",
     "manage_campaigns",
     "use_grok",
@@ -40,12 +42,17 @@ const roleCapabilities: Record<UserRole, AppCapability[]> = {
     "send_mail",
     "view_mail_inbox",
   ],
-  salesperson: [],
+  salesperson: [
+    "view_templates",
+    "manage_campaigns",
+  ],
   supervisor: [
     "view_queue",
     "view_dashboard",
     "view_followups",
     "view_orders",
+    "view_templates",
+    "manage_campaigns",
     "use_grok",
     "send_mail",
     "view_mail_inbox",

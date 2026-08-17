@@ -26,6 +26,7 @@ import { MARKETING_CAMPAIGN_TEMPLATES } from "@/lib/marketing-campaign-templates
 import { cn } from "@/lib/utils";
 import { PageFrame, PageHeader, PagePagination } from "@/components/layout";
 import { useStaggerIn } from "@/hooks/use-stagger-in";
+import { useAuth } from "@/contexts/AuthContext";
 
 const PAGE_SIZE = 12;
 
@@ -55,6 +56,8 @@ const emptyDraft = (): Partial<EmailTemplate> & { template_key: string; subject:
 });
 
 export default function TemplatesPage() {
+  const { hasCapability } = useAuth();
+  const canManage = hasCapability("manage_templates");
   const { data: templates = [], isLoading } = useEmailTemplates();
   const save = useSaveEmailTemplate();
   const importPack = useImportMarketingTemplatePack();
@@ -92,7 +95,6 @@ export default function TemplatesPage() {
   const previewBody = mergeTemplateVars(draft.html_body || "");
 
   const open = (t: EmailTemplate) => {
-    setSelectedId(t.id);
     setShowHtmlBody(false);
     setShowTextBody(false);
     setDraft({
@@ -108,6 +110,12 @@ export default function TemplatesPage() {
       active: t.active !== false,
       variables: t.variables,
     });
+    if (canManage) {
+      setSelectedId(t.id);
+    } else {
+      setSelectedId(null);
+      setPreviewOpen(true);
+    }
   };
 
   const closeEditor = () => {
@@ -126,43 +134,45 @@ export default function TemplatesPage() {
         title="Templates"
         description="Soft automation (day 60/75) and marketing HTML in one studio."
         actions={
-          <>
-            <Button
-              variant="outline"
-              className="rounded-xl w-full sm:w-auto"
-              disabled={importPack.isPending}
-              onClick={() => {
-                if (
-                  !window.confirm(
-                    `Import / refresh ${MARKETING_CAMPAIGN_TEMPLATES.length} Unique Distribution wholesale campaign templates? Existing keys will be updated.`,
-                  )
-                ) {
-                  return;
-                }
-                importPack.mutate();
-              }}
-            >
-              {importPack.isPending
-                ? "Importing…"
-                : (
-                  <>
-                    <span className="sm:hidden">Import pack ({MARKETING_CAMPAIGN_TEMPLATES.length})</span>
-                    <span className="hidden sm:inline">Import wholesale pack ({MARKETING_CAMPAIGN_TEMPLATES.length})</span>
-                  </>
-                )}
-            </Button>
-            <Button
-              className="rounded-xl w-full sm:w-auto"
-              onClick={() => {
-                setSelectedId("new");
-                setDraft(emptyDraft());
-                setShowHtmlBody(false);
-                setShowTextBody(false);
-              }}
-            >
-              New marketing template
-            </Button>
-          </>
+          canManage ? (
+            <>
+              <Button
+                variant="outline"
+                className="rounded-xl w-full sm:w-auto"
+                disabled={importPack.isPending}
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      `Import / refresh ${MARKETING_CAMPAIGN_TEMPLATES.length} Unique Distribution wholesale campaign templates? Existing keys will be updated.`,
+                    )
+                  ) {
+                    return;
+                  }
+                  importPack.mutate();
+                }}
+              >
+                {importPack.isPending
+                  ? "Importing…"
+                  : (
+                    <>
+                      <span className="sm:hidden">Import pack ({MARKETING_CAMPAIGN_TEMPLATES.length})</span>
+                      <span className="hidden sm:inline">Import wholesale pack ({MARKETING_CAMPAIGN_TEMPLATES.length})</span>
+                    </>
+                  )}
+              </Button>
+              <Button
+                className="rounded-xl w-full sm:w-auto"
+                onClick={() => {
+                  setSelectedId("new");
+                  setDraft(emptyDraft());
+                  setShowHtmlBody(false);
+                  setShowTextBody(false);
+                }}
+              >
+                New marketing template
+              </Button>
+            </>
+          ) : undefined
         }
       />
 

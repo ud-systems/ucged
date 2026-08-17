@@ -1,6 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { corsHeaders } from "../_shared/cors.ts";
-import { requireAdmin } from "../_shared/require-admin.ts";
+import { requireAnyRole } from "../_shared/require-admin.ts";
 
 type Recipient = {
   id: string;
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
     const isCron = Boolean(cronSecret && provided && provided === cronSecret);
 
     if (!isCron) {
-      const denied = await requireAdmin(req, corsHeaders);
+      const denied = await requireAnyRole(req, corsHeaders, ["admin", "supervisor", "salesperson"]);
       if (denied) return denied;
     }
 
