@@ -811,6 +811,7 @@ export function useOrderDetail(orderId?: string) {
           items: [
             { id: "li-1", product: "Sample Product", variant: "Default", sku: "SKU-1", quantity: 1, price: 189 },
           ],
+          customer_phone: "+971500000000",
         };
       }
       const { data: order, error } = await supabase
@@ -821,13 +822,22 @@ export function useOrderDetail(orderId?: string) {
         .eq("id", orderId!)
         .maybeSingle();
       if (error) throw error;
-      if (!order) return { order: null, items: [] };
+      if (!order) return { order: null, items: [], customer_phone: null };
       const { data: items, error: itemsErr } = await supabase
         .from("shopify_order_items")
         .select("id, product, variant, sku, quantity, price")
         .eq("order_id", orderId!);
       if (itemsErr) throw itemsErr;
-      return { order, items: items ?? [] };
+      let customer_phone: string | null = null;
+      if (order.customer_id) {
+        const { data: customer } = await supabase
+          .from("shopify_customers")
+          .select("phone")
+          .eq("id", order.customer_id)
+          .maybeSingle();
+        customer_phone = (customer?.phone as string | null) ?? null;
+      }
+      return { order, items: items ?? [], customer_phone };
     },
   });
 }
